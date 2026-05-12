@@ -173,3 +173,4 @@ The following state changes are **not reversed** by MPE cancel or rollback:
 | Asset Movement records | Created when bins are consumed and returned; cancelling MPE doesn't recall the bins |
 
 If a MPE needs to be corrected after the fact, a **separate correction flow**
+(not MPE cancel) is required to reverse these states.
