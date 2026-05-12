@@ -1,6 +1,6 @@
 # Blanking DC Entry - Specification
 
-**Status:** SHIPPED schema/Dash/local-create, but callback routing and Ops-vs-Legacy semantics need verification.
+**Status:** SPEC WRITTEN, but **not staging/prod shipped** per production overseer clarification on 2026-05-12. Schema/Dash/local-create observations exist, but callback routing and Ops-vs-Legacy semantics need verification.
 **Console doctype:** `Console Blanking DC Entry` (`BDC-.YYYY.-`) + `Console Blanking DC Item`
 **Legacy doctype:** `Blanking DC Entry` (`BDCE-.#####`) + `Blanking DC Item`
 **Ops handler:** dedicated `submit_blanking_dc_entry(context)`

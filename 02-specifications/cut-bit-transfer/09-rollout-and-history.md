@@ -1,6 +1,6 @@
 # 09 - Rollout and history
 
-## What shipped
+## What the source/spec shows
 
 | Wave | Shipped behavior |
 |---|---|

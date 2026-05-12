@@ -176,7 +176,7 @@ For the process queue, these were the expected story anchors; the first three ar
 | Cut Bit Transfer | Has **dedicated Ops handler** `submit_cut_bit_transfer(context, run_legacy_sync=False)`. Look at the `populate_cutbit_fields` function which has elaborate 3-way warehouse routing based on item_group. Console flow uses `flags.ignore_links`. The `_apply_clip_updates` callback path. |
 | Bulk Clip Release | Has **dedicated Ops handler** `bulk_release_clips(barcodes=clips)`. Likely simpler than Cut Bit. Look at how it differs from Sheeting (which produces clips) — this RELEASES them. State-machine on clip status. |
 | Blanking DC Entry | Has **dedicated Ops handler** `submit_blanking_dc_entry(context)`. Likely creates Asset Movement (Receive Bin) records, BOM validation against blanking input. Look at `populate_blanking_dc_fields`. |
-| Console Inspection unification | **COMBINED spec for 5 doctypes** — `console_inspection`, `console_inspection_reading`, `console_inspection_reading_spec`, `console_compound_inspection`, `console_compound_inspection_reading`. This is the Phase 1-4 work that shipped 2026-05-01. The unification REPLACED 3 per-type doctypes. The `create_local_inspection` function at api.py:2647 is the unified Phase 3 path. Critical: shares helpers with Compound Deviation. |
+| Console Inspection unification | **COMBINED spec for 5 doctypes** — `console_inspection`, `console_inspection_reading`, `console_inspection_reading_spec`, `console_compound_inspection`, `console_compound_inspection_reading`. The inspected code shows Phase 1-4 unification work, but shipment status is not counted beyond Sheeting after the 2026-05-12 production-overseer clarification. The `create_local_inspection` function at api.py:2647 is the unified Phase 3 path. Critical: shares helpers with Compound Deviation. |
 
 ### Step 4: Write the 11 files
 
@@ -253,9 +253,9 @@ These OVERRIDE any default behavior. They live at `~/.claude/memory/` and `~/.cl
 
 ## Hard architectural facts (do not contradict)
 
-1. **The 5-step `apply_bridge_result` race-safe pattern is byte-identical across 6 doctypes** (MB, FB, Sheeting, Cut Bit, Compound Deviation, Compound Inspection). Each step exists to close a specific production race observed during the Compound Deviation saga of 2026-04-29 → 2026-05-01.
+1. **The 5-step `apply_bridge_result` race-safe pattern is byte-identical across the implemented Wave-1-style doctypes inspected so far** (MB, FB, Sheeting, Cut Bit, Compound Deviation, Compound Inspection). Each step exists to close a specific production race observed during the Compound Deviation saga of 2026-04-29 → 2026-05-01.
 
-2. **`_safe_local_create` uses `flags.from_local_cache=True + ignore_validate=True`** so partial Dash payloads still land for audit. Controllers check `self.flags.get("from_local_cache")` in `validate` and return early. This invariant is relied on by all 7 shipped Wave 1 doctypes.
+2. **`_safe_local_create` uses `flags.from_local_cache=True + ignore_validate=True`** so partial Dash payloads still land for audit. Controllers check `self.flags.get("from_local_cache")` in `validate` and return early. This invariant is relied on by the Wave-1-style implemented doctypes inspected so far.
 
 3. **`reference_id` is the cross-system idempotency key** (13-digit `Date.now()` from Dash). Unique on Console doctype + idempotent on Bridge + idempotent on Ops MES Log.
 
@@ -271,7 +271,7 @@ These OVERRIDE any default behavior. They live at `~/.claude/memory/` and `~/.cl
 
 8. **Empty `field_mappings` pattern** (Compound Deviation): the Bridge's mapping engine handles declarative cases; complex identity-resolution flows delegate to Python populate functions instead. Don't add field_mappings to a process that already uses populate.
 
-9. **Phase 3 unification** (shipped 2026-05-01): `Console Process Template.is_inspection_type=1` routes new submissions to unified `Console Inspection` doctype instead of per-type Console doctypes. Old per-type doctypes remain in `parent_doctypes` for pre-cutover records.
+9. **Phase 3 unification** (implemented in the inspected Console code): `Console Process Template.is_inspection_type=1` routes new submissions to unified `Console Inspection` doctype instead of per-type Console doctypes. Old per-type doctypes remain in `parent_doctypes` for pre-cutover records. Production/staging shipment status must be treated separately from code/spec existence.
 
 10. **Factory requirement skip:** Rejected Compound Inspections do NOT route to Legacy — they're handled later via Compound Deviation. `initialize_submission` has explicit logic for this.
 
@@ -294,7 +294,7 @@ For every file you write:
 
 ### Process #5 — Cut Bit Transfer (DONE — Codex)
 
-**Status:** Shipped. Verified against source. Use `cut-bit-transfer/` folder as a reference template.
+**Status:** Spec written and verified against source, but **not staging/prod shipped per production overseer clarification on 2026-05-12**. Use `cut-bit-transfer/` as a reference template for source-grounded drift analysis, not as proof of shipped status.
 
 **Key findings Codex surfaced** (worth carrying forward as drift-hunting examples):
 - `items.spp_batch_no` vs Dash/Console `spp_batch_number` field-name drift in mapping seeder
@@ -304,7 +304,7 @@ For every file you write:
 
 ### Process #6 — Bulk Clip Release (DONE — Codex)
 
-**Status:** Shipped schema/controller, but cockpit spec flags routing drift. Use `bulk-clip-release/` as the reference for a process where the business logic is simple but the wiring is not cockpit-clean.
+**Status:** Spec written; schema/controller observations exist, but **not staging/prod shipped per production overseer clarification on 2026-05-12**. Use `bulk-clip-release/` as the reference for a process where the business logic is simple but the wiring is not cockpit-clean.
 
 **Key findings Codex surfaced** (carry forward as drift-hunting examples):
 - Dash sends `metadata.process_type`, but `build_transaction_payload` requires `metadata.process_code`
@@ -315,7 +315,7 @@ For every file you write:
 
 ### Process #7 — Blanking DC Entry (DONE — Codex)
 
-**Status:** Shipped schema/Dash/local-create, but cockpit spec flags target-semantics drift. Use `blanking-dc-entry/` as the reference for a process where Console/Legacy tell one operational story and Ops tells another.
+**Status:** Spec written; schema/Dash/local-create observations exist, but **not staging/prod shipped per production overseer clarification on 2026-05-12**. Use `blanking-dc-entry/` as the reference for a process where Console/Legacy tell one operational story and Ops tells another.
 
 **Key findings Codex surfaced** (carry forward as drift-hunting examples):
 - Console local create exists, but `update_local_domain_record` omits `BLANKING_DC_ENTRY`, so target callbacks do not update the local BDE row through the standard path
@@ -324,7 +324,7 @@ For every file you write:
 - Console seeder field mappings disagree with Bridge's populate-only pattern; `items.qty` is seeded but Dash sends `net_weight`
 - Old Wave 2 planning docs mention `move_to_cut_bit_warehouse` / `scan_cut_bit_batch`, but current `BlankingDCEntry.tsx` does not expose that branch
 
-### Process #8 — Console Inspection unification (combined spec)
+### Process #8 — Console Inspection unification (DONE — Codex)
 
 **Special: this covers 5 doctypes in one folder.** Folder name: `console-inspection-unification`.
 
@@ -340,7 +340,7 @@ For every file you write:
 - Mapping: `seed_compound_inspection_mapping`
 - Dash: `CompoundInspectionEntry.tsx` (or unified Inspection entry — verify)
 
-**The story:** Phase 1-4 unification deployed 2026-05-01. Three legacy per-type doctypes consolidated into one unified `Console Inspection` with `inspection_type` Select field. Phase 3 dispatch in `initialize_submission` routes based on Process Template's `is_inspection_type` flag. Compound Deviation shares the same helpers — that refactor is what stabilized the saga.
+**The story:** The inspected code consolidates three legacy per-type doctypes into one unified `Console Inspection` with `inspection_type` Select field. Phase 3 dispatch in `initialize_submission` routes based on Process Template's `is_inspection_type` flag. Compound Deviation shares the same helpers — that refactor is what stabilized the saga. Treat this as code/spec reality, not staging/prod shipment proof.
 
 **Spec structure for this combined process:**
 - `01-business-context.md`: explain unification rationale, three inspection types (Compound / Quality / etc.)
@@ -354,23 +354,53 @@ For every file you write:
 - `09-rollout-and-history.md`: **the Phases 1-4 deploy narrative** + the helper-extraction refactor
 - `10-risks-and-decisions.md`: cavity_no still applies; readings spec drift; backfill of pre-Phase-3 records
 
+### Process #9 — Blank Bin Inward Entry (DONE — Codex)
+
+**Status:** Spec written as forward-looking / not shipped. See `blank-bin-inward-entry/`.
+
+### Process #10 — Add On Work Planning (DONE — Codex, corrected 2026-05-12)
+
+**Status:** Spec written as forward-looking / not shipped, corrected after direct Legacy Work Planning review. See `add-on-work-planning/`.
+
+**Important:** This spec is now scoped to supplemental Add On Work Planning only. It must not be used as a hidden replacement for Work Planning.
+
+### Process #11 — Work Planning (DONE — Codex correction)
+
+**Status:** Spec written; Legacy-shipped but Console/Ops port not verified as shipped. See `work-planning/`.
+
+**The story:** Work Planning is the official one-per-shift production plan. Legacy enforces one submitted Work Planning per `date + shift_series`; Add On Work Planning does not. This spec was added because the earlier planning text incorrectly collapsed both processes.
+
+### Process #12 — Blank Bin Issue (DONE — Codex, legacy/site-derived)
+
+**Status:** Spec written; Legacy/site-derived, not staging/prod shipped in Console. See `blank-bin-issue/`.
+
+**The story:** BBI is a logical bin-to-moulding-Job-Card issue, not a stock movement. Legacy is high-volume, current Console `develop` has no BBI port. A stale local Console remote-tracking ref/commit showed only prototype UI/dummy helpers, while the live `iyyanarr/shree_polymer_console` remote only exposed `develop` on 2026-05-12; Bin Issue branches found live are in `shree_polymer_custom_app`.
+
 ---
 
-## Currently shipped tally (running total)
+## Specification tally and shipment status
+
+**Production overseer clarification (2026-05-12): only processes through Sheeting are shipped to staging/production.** Specs after Sheeting may be source-grounded and useful for refactor planning, but they must not be described as staging/prod shipped until the user confirms.
 
 | # | Process | Author | Status | Lines |
 |---|---|---|---|---|
-| 1 | Master Batch Mixing | Claude | ✅ Done (full template) | 2947 |
-| 2 | Final Batch Mixing | Claude | ✅ Done (delta) | 1255 |
-| 3 | Compound Deviation | Claude | ✅ Done (delta + saga narrative) | 1569 |
-| 4 | Sheeting Process | Claude | ✅ Done (delta) | 1425 |
-| 5 | Cut Bit Transfer | Codex | ✅ Done (delta, verified against source) | 1028 |
-| 6 | Bulk Clip Release | Codex | ✅ Done (delta, drift-heavy) | 778 |
-| 7 | Blanking DC Entry | Codex | ✅ Done (delta, semantics-drift) | 734 |
-| 8 | Console Inspection unification | — | ⏳ Next | — |
-| | **Cockpit total so far** | | | **9736 lines / 77 files** |
+| 1 | Master Batch Mixing | Claude | ✅ Spec done; staging/prod shipped | 2947 |
+| 2 | Final Batch Mixing | Claude | ✅ Spec done; staging/prod shipped | 1255 |
+| 3 | Compound Deviation | Claude | ✅ Spec done; staging/prod shipped | 1569 |
+| 4 | Sheeting Process | Claude | ✅ Spec done; staging/prod shipped | 1425 |
+| 5 | Cut Bit Transfer | Codex | 📄 Spec done; not staging/prod shipped | 1028 |
+| 6 | Bulk Clip Release | Codex | 📄 Spec done; not staging/prod shipped; drift-heavy | 778 |
+| 7 | Blanking DC Entry | Codex | 📄 Spec done; not staging/prod shipped; semantics drift | 734 |
+| 8 | Console Inspection unification | Codex | 📄 Spec done; shipment status not counted beyond Sheeting | 1267 |
+| 9 | Blank Bin Inward Entry | Codex | 📄 Forward-looking spec; not staging/prod shipped | 967 |
+| 10 | Add On Work Planning | Codex | 📄 Forward-looking spec; not staging/prod shipped | 1059 |
+| 11 | Work Planning | Codex | 📄 Legacy-shipped; Console/Ops port not verified as shipped | 527 |
+| 12 | Blank Bin Issue | Codex | 📄 Legacy/site-derived spec; not staging/prod shipped | 526 |
+| | **Cockpit total so far** | | | **14082 lines / 132 files** |
 
-Expected total at completion: ~12,000-15,000 lines across ~88 files.
+Remaining empty spec folders on disk: `inspection-entry/`, `moulding-production-entry/`.
+
+Expected total at completion: ~15,000-18,000 lines across ~150 files.
 
 **Codex precedent:** Codex completed Cut Bit Transfer successfully on the first run using this prompt. Its spec was verified against actual source code — every factually-specific claim checked out. It also surfaced two real drift issues (the `spp_batch_no` vs `spp_batch_number` field-name drift, and the test/doc drift around clip retirement). Use Codex's `cut-bit-transfer/` folder as an additional reference template alongside the 4 Claude-written specs.
 
@@ -398,10 +428,10 @@ Expected total at completion: ~12,000-15,000 lines across ~88 files.
 
 Your first message after reading this prompt should:
 
-1. Confirm you've read and understood the cockpit at `/Users/alphaworkz/spp-porting-cockpit/02-specifications/` (7 specs already done, including Codex-written Cut Bit Transfer, Bulk Clip Release, and Blanking DC Entry as peer references)
-2. Briefly summarize the 4 hard architectural facts most relevant to the next process (Console Inspection unification)
+1. Confirm you've read and understood the cockpit at `/Users/alphaworkz/spp-porting-cockpit/02-specifications/` (12 specs already done, including Work Planning vs Add On Work Planning correction and Blank Bin Issue)
+2. Briefly summarize the 4 hard architectural facts most relevant to the next empty process folder
 3. State your plan for the first 30 minutes of work (source discovery, then file writing)
-4. Ask ONE focused question — typically "Should I proceed with Console Inspection unification in delta style, as one combined spec?"
+4. Ask ONE focused question — typically "Should I proceed with the next empty spec folder in process-scoped style?"
 
 After the user confirms, execute. Don't ask permission to read files or write spec files — just do it.
 

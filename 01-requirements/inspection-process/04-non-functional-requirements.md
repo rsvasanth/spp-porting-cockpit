@@ -2,85 +2,109 @@
 
 ## NFR-INS — Performance
 
-### NFR-INS-001 — Scan lookup latency
-Scanning a compound barcode must return identity and stock context within 1 second under normal load.
+### NFR-INS-001 — End-to-end latency
+| Phase | Target | Hard limit |
+|---|---|---|
+| `initialize_submission` | < 500 ms | 2 s |
+| Each `execute_submission_step` HTTP roundtrip | < 5 s | 30 s |
+| Total wall-clock (Submit → success modal) | < 10 s (CI) / < 12 s (CD with source fetch) | 30 s |
+| Auto-submit on Console doc after both legs Synced | < 2 s | 5 s |
 
-### NFR-INS-002 — Reading entry responsiveness
-Pass/fail state for readings must update immediately enough for the inspector to understand whether the batch is trending Accepted or Rejected before submit.
+### NFR-INS-002 — Concurrent QI throughput
+System must support **5 Quality Inspectors submitting CI simultaneously** without race-condition data corruption or latency degradation beyond 2× single-QI baseline.
 
-### NFR-INS-003 — Deviation queue responsiveness
-The pending Deviation list must load rejected inspections within 2 seconds under normal shift volume.
-
-### NFR-INS-004 — Submit latency
-Normal successful submissions should complete within 30 seconds wall-clock, including target feedback.
+### NFR-INS-003 — Source-CI fetch latency
+The CD entry screen's source-CI fetch (`get_rejected_compound_inspection(mix_barcode)`) must return within **1 second**.
 
 ## NFR-INS — Reliability
 
 ### NFR-INS-010 — Single-leg failure tolerance
-If one ERP is unavailable, the available leg must still be allowed to complete when the business target intent allows it.
+If Ops is unavailable: CI submissions queue locally as Pending; operator retries when Ops returns. If Legacy is unavailable: CD submissions land Ops-only and stay Partial until Legacy returns + retry.
 
-### NFR-INS-011 — Rejected-CI target clarity
-Rejected CIs intentionally skip Legacy. The system must make this distinguishable from an accidental Legacy failure.
+### NFR-INS-011 — Saga regression protection
+The 5-step `apply_bridge_result` pattern must be byte-identical across:
+- `Console Inspection` (Phase 3 unified)
+- `Console Compound Deviation` (legacy per-type)
+- `Console Compound Inspection` (legacy per-type)
 
-### NFR-INS-012 — Deviation recovery
-A failed Deviation sync must be retryable without forcing the QM to re-enter source readings or reason.
+Drift between these implementations is a regression — covered by NFR-INS-052 below.
 
-### NFR-INS-013 — Concurrent callback safety
-The callback aggregation must be reliable under near-simultaneous target responses. False Partial after both target legs succeed is unacceptable.
+### NFR-INS-012 — cavity_no fallback resilience
+Until cavity_no is properly wired, every fallback fire must produce a structured `frappe.log_error` entry with: `scan_compound`, `batch_no`, `reference_id`. Fallback must NEVER block the submission — logging failure is silently swallowed.
+
+### NFR-INS-013 — 6-strategy SE lookup integrity
+The strategy chain in `_lookup_legacy_stock_entry` must execute in priority order. Each strategy survives because it covers a real production case. Removing a strategy requires proof of zero hits in production `Legacy Bridge Log` for at least 90 days.
 
 ## NFR-INS — Data integrity
 
-### NFR-INS-020 — Reading completeness
-Required readings must not be silently omitted on strict submission.
+### NFR-INS-020 — Cross-system referential integrity at steady state
+For every successful CI/CD record:
+- `sync_status="Success"` Console record ↔ corresponding records exist on both ERPs (CD case) or on Ops only (Rejected CI case)
+- `sync_status="Partial"` Console record ↔ exactly one of Legacy/Ops has the record (matching the Partial state's allocation)
+- `sync_status="Failed"` Console record ↔ neither ERP has the record
 
 ### NFR-INS-021 — Identity consistency
-Mix barcode, source inspection, batch identity, and `reference_id` must remain consistent across Console, Legacy, Bridge logs, and Ops logs.
+For every successful submission:
+- `Console <doctype>.mix_barcode == Legacy Compound Inspection.mix_barcode == Ops Stock Entry items[FG].mix_barcode`
+- `Console <doctype>.reference_id == Legacy Compound Inspection.reference_id == Ops MES Log.reference_id`
 
-### NFR-INS-022 — Deviation immutability
-Once a Deviation is submitted, its QM decision, reason, and source link must be treated as audit facts. Corrections require cancellation/replacement, not silent edit.
+### NFR-INS-022 — Stock ledger reconciliation
+For CI Accepted + CD Accepted + CD Rejected submissions, Stock Ledger Entries on Ops must reflect the appropriate inventory move (within 0.001 kg tolerance). For Rework, no Stock Ledger movement is expected.
 
-### NFR-INS-023 — No duplicate disposition
-One rejected CI must not receive two active QM dispositions.
-
-### NFR-INS-024 — Cavity data quality
-`cavity_no` must be treated as meaningful QA metadata. Defaulting it to 1 is acceptable only as a documented temporary mitigation.
+### NFR-INS-023 — Idempotency under retry
+The system must be safe to retry indefinitely. Multiple retries of the same `reference_id` converge on the same state.
 
 ## NFR-INS — Audit
 
-### NFR-INS-030 — QM accountability
-Every Deviation must identify the Quality Manager who authorized it.
+### NFR-INS-030 — Audit trail completeness
+For every submission:
+- Console doc: `payload_snapshot` JSON, per-leg sync status, `error_log_summary`
+- Console Transaction Log: 1-2 rows (1 for Rejected CI; 2 for everything else)
+- Legacy Bridge Log: 1 row per Bridge call (with `transformed_data` capturing what was sent to Legacy)
+- Ops MES Log: 1 row with `result_payload` showing action outputs
 
-### NFR-INS-031 — Reason quality
-Deviation reason must be long enough to show intent and must be visible on the target Legacy record.
+Retention: minimum 90 days for all logs.
 
-### NFR-INS-032 — Cross-log reconstruction
-For any inspection or deviation in the last 90 days, engineering must be able to reconstruct the event from Console doc, Console Transaction Log, Legacy Bridge Log, and Ops MES Log.
+### NFR-INS-031 — Saga incident reconstruction
+For any submission in the last 90 days, an engineer must be able to reconstruct the full event chain from a single `reference_id`. The chain must show: Dash submit time, per-leg Bridge/Ops call times, callback arrival times, final aggregate state.
 
-### NFR-INS-033 — Fallback observability
-Temporary fallbacks, especially `cavity_no = 1`, must emit structured logs or appear in drift reports.
+### NFR-INS-032 — QM accountability for CD decisions
+Every CD record must persistently record the deciding QM (`quality_approver_id`). For audit purposes, this must survive session changes and Console user updates.
 
-## NFR-INS — Security and access
+## NFR-INS — Security / Access control
 
 ### NFR-INS-040 — Role enforcement
-Only Quality Inspectors should submit Compound Inspections. Only Quality Managers or higher should authorize Compound Deviations.
+- Quality Inspector role: required for CI submit
+- Quality Manager role: required for CD submit
+- System Manager / Administrator: full access including backdating
 
-### NFR-INS-041 — No operator self-override
-The same operator who performed a regular inspection must not be able to convert a rejection into acceptance unless they also hold Quality Manager authority.
+Enforced at: Frappe doctype permissions + Dash UI gating + server-side `get_available_employees` filter.
 
-### NFR-INS-042 — Target credential isolation
-Calls to Legacy Bridge and Ops must use configured authenticated channels. Credential failures must surface as target-leg failures, not ambiguous validation errors.
+### NFR-INS-041 — Cross-site authentication
+Same as Mixing — Console's calls to Bridge and Ops use authenticated channels. Token failures surface as clear errors, not silent retries.
+
+## NFR-INS — Usability
+
+### NFR-INS-050 — Scan-driven workflow
+CI: badge scan → mix_barcode scan → readings. Minimal typing.
+CD: badge scan → mix_barcode scan → status dropdown → reason text.
+
+### NFR-INS-051 — Error UX (plain English)
+Specific to inspection: errors must clearly distinguish "the compound batch was not found" from "the source CI is not rejected" — both common operator confusion points.
+
+### NFR-INS-052 — Status routing visibility
+Before CD submission, the Dash must show the operator what will happen on the Ops side based on selected status (Accepted → Material Transfer SE; Rejected → write-off; Rework → no SE). Avoids QM confusion about downstream consequences.
 
 ## NFR-INS — Maintainability
 
-### NFR-INS-050 — Unified inspection extensibility
-Adding a new inspection type should prefer the unified `Console Inspection` model with a Process Template, validation dispatch method, and reading specs.
+### NFR-INS-060 — Spec-and-test alignment
+Same rule as Mixing: every code change to inspection-related modules updates corresponding spec sections and `08-traceability.md` in the same PR.
 
-### NFR-INS-051 — Shared helper preservation
-Compound Inspection and Deviation identity resolution must remain shared. Forking the lookup logic creates drift risk.
+### NFR-INS-061 — Saga story preservation
+The Compound Deviation saga timeline (documented in spec `09-rollout-and-history.md`) must remain accurate as the **canonical incident history** for SPP's race-condition mitigation pattern. Future spec edits MUST NOT erase or "tidy up" this narrative.
 
-### NFR-INS-052 — Test gate compliance
-Any change to inspection validation, target routing, Bridge identity helpers, or callback aggregation must include relevant tests before push.
-
-### NFR-INS-053 — Cockpit traceability
-Every durable inspection behavior must trace to this requirements pack and the corresponding spec sections. Missing spec coverage is a drift item.
-
+### NFR-INS-062 — Test gate compliance
+- For changes to `apply_bridge_result` on any inspection doctype: concurrency tests must pass before push
+- For changes to the 6-strategy SE lookup: per-strategy test must demonstrate the new behavior + production-log evidence for any removed strategy
+- For changes to `populate_compound_*_fields`: shared-helper compatibility test (CI + CD both pass)
+- For changes to the factory-requirement skip: production overseer sign-off required (operations impact)

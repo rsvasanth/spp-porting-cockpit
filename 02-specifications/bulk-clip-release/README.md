@@ -1,6 +1,6 @@
 # Bulk Clip Release - Specification
 
-**Status:** SHIPPED schema/controller, but current orchestration path has routing drift to verify.
+**Status:** SPEC WRITTEN, but **not staging/prod shipped** per production overseer clarification on 2026-05-12. Schema/controller observations exist, but orchestration path has routing drift to verify.
 **Console doctype:** `Console Bulk Clip Release` (`CBCR-.YYYY.-.#####`) + `Console Clip Release Item`
 **Legacy doctype:** `Bulk Clip Release` (`CLIPR-.YYYY.-.#####`) + `Clip Release Item`
 **Ops handler:** dedicated `bulk_release_clips(barcodes=clips)`; takes a list, not the full payload.

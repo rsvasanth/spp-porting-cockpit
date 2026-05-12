@@ -1,6 +1,6 @@
 # Cut Bit Transfer - Specification
 
-**Status:** SHIPPED. Wave 1 cohort, with Wave 1.5 hardening around native batch relay and asset mapping.
+**Status:** SPEC WRITTEN / SOURCE-VERIFIED, but **not staging/prod shipped** per production overseer clarification on 2026-05-12. Earlier "shipped" wording was incorrect for production status beyond Sheeting.
 **Console doctype:** `Console Cut Bit Transfer` (`CBT-.YYYY.-.#####`) + `Console Cut Bit Item`
 **Legacy doctype:** `Cut Bit Transfer` (`CBT-.#####`) in `shree_polymer_custom_app`
 **Ops document:** dedicated `Stock Entry` Repack via `submit_cut_bit_transfer(context, run_legacy_sync=False)`
@@ -46,5 +46,5 @@
 | [06-ops-erpnext.md](06-ops-erpnext.md) | Dedicated Ops handler, SABB bypass, `run_legacy_sync=False` |
 | [07-end-to-end-flow.md](07-end-to-end-flow.md) | Single operator submission trace |
 | [08-test-plan.md](08-test-plan.md) | Unit, integration, E2E, smoke, UAT checks |
-| [09-rollout-and-history.md](09-rollout-and-history.md) | What shipped, what Hermes can touch |
+| [09-rollout-and-history.md](09-rollout-and-history.md) | What the source/spec shows, what Hermes can touch |
 | [10-risks-and-decisions.md](10-risks-and-decisions.md) | Plan-vs-reality deltas, invariants, open decisions |

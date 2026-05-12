@@ -118,8 +118,8 @@ The Mixing Process does NOT include a feature for exporting data to a BI tool or
 |---|---|
 | Compound Inspection (QA after Mixing) | `01-requirements/inspection-process/` (TBD) |
 | Compound Deviation (QM override on rejected lots) | `01-requirements/inspection-process/` (TBD) |
-| Sheeting (consumes Mixing output) | `01-requirements/sheeting-and-cutting/` (TBD) |
-| Cut Bit Transfer (recycles cut-bits back to Mixing) | `01-requirements/sheeting-and-cutting/` (TBD) |
+| Sheeting (consumes Mixing output) | `01-requirements/sheeting-process/` |
+| Cut Bit Transfer (recycles cut-bits back to Mixing) | `01-requirements/cut-bit-transfer/` |
 | Stock reconciliation | future `01-requirements/reconciliation/` |
 | Operator productivity reporting | future `01-requirements/reporting/` |
 

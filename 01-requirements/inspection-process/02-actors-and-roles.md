@@ -4,127 +4,129 @@
 
 ### Quality Inspector
 
-The Quality Inspector records compound readings after mixing.
+Submits Compound Inspections. Inspects every compound batch produced by mixing.
 
 | Aspect | Detail |
 |---|---|
-| Console role | `Quality Inspector` |
-| Main screen | Compound Inspection |
-| Decision | Accepted or Rejected based on readings |
-| Cannot do | Override a rejected lot without QM signoff |
+| Console role name | `Quality Inspector` |
+| Where active | Compound Inspection lab; near the Two Roll Mixing Mill / Avon Kneader |
+| Console access | Dash UI only (no Desk access) |
+| Console permissions on CI | Create + Submit on `Console Inspection` (with `inspection_type="Compound Inspection"`) |
+| Console permissions on CD | **None** — explicitly disallowed at the Dash layer |
+| Decision rights | Selects status (Accepted / Rejected); records readings; cannot override a prior QM decision |
 
-What the Quality Inspector needs:
+**What the Quality Inspector needs from the system:**
 
-- Scan a compound batch and resolve its identity
-- Enter required readings without hunting through Desk forms
-- See whether each reading is within limits
-- Submit an Accepted or Rejected result with clear downstream status
-- Avoid duplicating lab records for the same batch
+- A scan-driven UI to select the compound batch by `mix_barcode`
+- BOM-driven reading template (item-specific spec parameters with min/max)
+- Auto-calculate Pass/Fail per reading; auto-derive overall status
+- Submit button enabled only when all required readings are entered
+- Clear indication of next step if rejected ("Lot will be held; notify QM")
 
 ### Quality Manager
 
-The Quality Manager decides what happens to rejected compound.
+Submits Compound Deviations on rejected lots. Decides material disposition.
 
 | Aspect | Detail |
 |---|---|
-| Console role | `Quality Manager` |
-| Main screen | Compound Deviation |
-| Decision | Accepted override, Rejected, or Rework |
-| Mandatory evidence | QM badge scan and deviation reason |
+| Console role name | `Quality Manager` |
+| Where active | Lab / QA office |
+| Console access | Dash + limited Desk |
+| Console permissions on CI | Read (for context) + create + submit (rare; for backdated CI corrections) |
+| Console permissions on CD | Create + Submit on `Console Inspection` (with `inspection_type="Compound Deviation"`) OR `Console Compound Deviation` |
+| Decision rights | Status: Accepted (override) / Rejected (scrap) / Rework (return to mixing); records `deviation_reason` |
 
-What the Quality Manager needs:
+**What the Quality Manager needs from the system:**
 
-- See only rejected inspections that still need disposition
-- See source readings as read-only context
-- Scan their own badge to authorize the decision
-- Record a reason that is meaningful enough for audit
-- Know that the decision landed on both ERPs or is visible for retry
-
-### Production Overseer
-
-The production overseer owns sign-off and drift decisions.
-
-| Decision | Overseer role |
-|---|---|
-| Whether to wire `cavity_no` fully | Approves cross-layer work |
-| Whether rejected CIs skip Legacy | Owns factory rule |
-| Whether Deviation statuses change | Coordinates QA + stock behavior |
-| Whether a shipped state is acceptable | Signs off UAT and monitoring |
+- A scan-driven entry point: scan the rejected compound's barcode → fetch the source CI's full context
+- Read-only view of the original CI readings (so QM can verify the rejection rationale)
+- Status dropdown with three options
+- Required reason field (min 5 chars) — forces QM to articulate decision rationale
+- Approver scan + signoff (QM's own badge captured as `quality_approver_id`)
+- Clear indication of downstream consequence per status choice
 
 ## Secondary actors
 
-### Mixing Operator
+### Mixing Operator (upstream)
 
-The Mixing Operator does not submit inspection records, but their mixed batch is the subject of inspection. The inspection flow must be able to trace back to the Mixing record by mix barcode.
+Doesn't submit CI or CD, but their submission triggers CI. Operator may need to scan a Rejected lot's barcode to identify it for handover to QA — a downstream-visibility concern, not a participation concern.
 
 ### Shop Floor Supervisor
 
-The supervisor needs shift-level visibility:
+Reviews CI / CD throughput and rejection rates at shift end.
 
-| Question | Where answered |
+**What they need from this motion:**
+
+- Per-shift count of CI submissions by outcome (Accepted / Rejected)
+- Per-shift count of CD submissions by status (Accepted / Rejected / Rework)
+- Drill-down from a CD back to its source CI for root-cause review
+- Visibility into recurring rejection reasons
+
+### Compound QA Lead
+
+Owns the inspection spec rules. Indirect actor — defines the BOM-attached parameter specs that CI readings are validated against.
+
+**What they need:**
+
+- Confidence that every CI submission's readings are checked against current BOM parameters
+- Visibility into per-parameter pass/fail rates
+
+### Production Overseer (you)
+
+| Aspect | Detail |
 |---|---|
-| Which batches are waiting on Deviation? | Console rejected inspection list |
-| Which deviations were accepted by QM? | Console Inspection / Deviation records |
-| Which syncs are Partial or Failed? | Console Transaction Log |
+| Role | `System Manager` / `Administrator` |
+| Special capability | Backdate `posting_date` arbitrarily; correct historical CI/CD records |
+| Usage pattern | Audit reconstruction; rare manual override |
 
-### Inventory / Stock Controller
-
-The stock controller verifies the material movement implied by inspection outcomes.
-
-| Outcome | Expected stock behavior |
-|---|---|
-| Accepted CI | Material moves forward to ready warehouse |
-| Rejected CI | Legacy leg is intentionally skipped until Deviation |
-| Accepted Deviation | Material moves forward by QM override |
-| Rejected Deviation | Material is removed/scrapped per configured route |
-| Rework Deviation | No forward stock movement; material remains pending rework |
-
-## Non-human actors
+## Non-human actors (system roles)
 
 ### Console Dash
 
-| Responsibility | Must guarantee |
+| Responsibility | What it must guarantee |
 |---|---|
-| Compound scan | Resolves batch identity and available readings context |
-| Reading capture | Calculates pass/fail status from limits |
-| QM signoff | Validates Quality Manager badge |
-| Submission orchestration | Runs target legs and shows per-target feedback |
+| QI-facing UI | Scan + reading entry with BOM-spec validation per parameter |
+| QM-facing UI | Source-CI fetch, read-only display, status + reason, approver scan |
+| Role gating | QI cannot see CD submit button; QM sees CD button only if source CI was Rejected |
+| Live Feedback | Same Promise.all parallel target pattern as Mixing |
 
 ### Console Backend
 
-| Responsibility | Must guarantee |
+| Responsibility | What it must guarantee |
 |---|---|
-| Unified inspection write | Writes `Console Inspection` for inspection-type templates |
-| Strict validation path | Enforces required readings and Deviation source rules outside audit bypass |
-| Callback aggregation | Converges concurrent target callbacks correctly |
-| Deviation uniqueness | Blocks a second active Deviation for the same source CI |
+| Local audit record | Both CI and CD land a `Console Inspection` (Phase 3) or per-type record |
+| Phase 3 dispatch | `is_inspection_type` flag on Process Template routes to unified path |
+| Identity capture | `mix_barcode` carried through every payload layer |
+| Race-safe callback | The 5-step `apply_bridge_result` saga pattern |
+| Factory-requirement skip | Rejected CIs do NOT POST to Legacy; only Ops |
 
 ### Legacy Bridge
 
-| Responsibility | Must guarantee |
+| Responsibility | What it must guarantee |
 |---|---|
-| Legacy CI creation | Creates `Compound Inspection`, not a new Deviation doctype |
-| Identity lookup | Resolves the source Stock Entry using the shared lookup chain |
-| Reading transfer | Rebuilds legacy reading rows faithfully |
-| Deviation extras | Adds QM signoff, status, remarks, and `cavity_no` fallback when needed |
+| `populate_compound_inspection_fields` | CI path: shared identity helpers + reading sync |
+| `populate_compound_deviation_fields` | CD path: same shared helpers + `_apply_deviation_extras` |
+| 6-strategy SE lookup | Every strategy preserved; fail-loud on miss |
+| Empty `field_mappings` for CD | All population in Python; mapping doctype shell only exists for routing |
+| cavity_no fallback to 1 | With structured log every fire |
 
-### Ops Transaction Engine
+### Ops MES Transaction Engine
 
-| Responsibility | Must guarantee |
+| Responsibility | What it must guarantee |
 |---|---|
-| Accepted material movement | Creates Material Transfer when configured |
-| Status conditions | Skips actions when status does not allow movement |
-| Idempotency | Reuses existing MES Log on retry |
-| Audit | Records action results even when actions are conditionally skipped |
+| Status-conditional SE creation | Accepted CI/CD → Material Transfer SE; Rejected → Material Issue or write-off; Rework → no SE |
+| Idempotency via MES Log | `reference_id` key |
+| Generic engine (no dedicated handler) | This motion stays on the generic path |
 
 ## Decision rights matrix
 
-| Decision | Owner |
+| Decision | Who decides |
 |---|---|
-| Lab reading value | Quality Inspector |
-| Override rejected material | Quality Manager |
-| Add or change reading specification | QA Lead + Production Overseer |
-| Add a Deviation status | Production Overseer + QA Lead + Engineering |
-| Change rejected-CI Legacy skip | Production Overseer |
-| Change callback pattern | Engineering Lead + test gate approval |
-
+| When to submit a CI | Quality Inspector (after mixing event lands) |
+| What status (Accepted/Rejected) a CI gets | Quality Inspector based on reading thresholds |
+| When to open a CD | Quality Manager (operationally — they're notified when CI rejects) |
+| What status (Accepted/Rejected/Rework) a CD gets | Quality Manager based on lot inspection + business context |
+| When to skip routing rejected CIs to Legacy | **Factory requirement, NOT a per-submission choice** — fixed business rule |
+| Whether to wire `cavity_no` properly | Production Overseer + Engineering Lead (active TODO) |
+| When to deprecate per-type Console doctypes | Production Overseer (separate epic; depends on backfill of pre-Phase-3 records) |
+| When to consolidate CI + CD into a single workflow on Dash | Production Overseer — currently kept separate for audit/separation-of-concerns |

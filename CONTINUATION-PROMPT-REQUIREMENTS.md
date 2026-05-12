@@ -1,6 +1,6 @@
 # SPP Porting Cockpit — Requirements Layer Continuation Prompt
 
-**Hand this whole file to a fresh Claude Code or Codex session.** It contains everything that session needs to scaffold business requirements for the remaining business motions without re-deriving context.
+**Hand this whole file to a fresh Claude Code or Codex session.** It contains the current requirements-layer state and the method to continue corrections without re-deriving context.
 
 > **NOT the same as [`CONTINUATION-PROMPT.md`](CONTINUATION-PROMPT.md).** That file is for writing **technical specifications** (`02-specifications/` — code-grounded, empirical). This file is for writing **business requirements** (`01-requirements/` — intent-driven, plain language, audience is the production overseer + business stakeholders).
 
@@ -46,14 +46,26 @@ Two cockpit layers:
 ```
 spp-porting-cockpit/
 ├── 01-requirements/          ← THIS layer — business intent, plain language
-│   └── mixing-process/       ← PILOT — read this first as the reference
+│   ├── mixing-process/       ← PILOT — read this first as the reference
+│   ├── inspection-process/   ← Done by Codex
+│   ├── sheeting-process/     ← Done by Codex, process-scoped
+│   ├── cut-bit-transfer/     ← Done by Codex, process-scoped
+│   ├── bulk-clip-release/    ← Done by Codex, process-scoped
+│   ├── blanking-dc-entry/    ← Done by Codex, Legacy/site-derived
+│   ├── blank-bin-inward-entry/ ← Done by Codex, Legacy/site-derived
+│   ├── blank-bin-issue/      ← Done by Codex, Legacy/site-derived
+│   ├── work-planning/        ← Done by Codex, Legacy-derived
+│   ├── add-on-work-planning/ ← Done by Codex, Legacy-derived
+│   ├── moulding-production-entry/ ← Done by Codex, Legacy/site-derived
+│   └── inspection-entry/     ← Done by Codex, Legacy/site-derived
 │
 ├── 02-specifications/        ← OTHER layer — empirical, code-grounded
 │   ├── master-batch-mixing/  ← Already done by Claude
 │   ├── final-batch-mixing/   ← Already done by Claude
 │   ├── compound-deviation/   ← Already done by Claude (with the Saga narrative)
 │   ├── sheeting-process/     ← Already done by Claude
-│   └── cut-bit-transfer/     ← Already done by Codex
+│   ├── cut-bit-transfer/     ← Already done by Codex
+│   └── bulk-clip-release/    ← Already done by Codex
 │
 ├── CONTINUATION-PROMPT.md              ← For specs (other agent)
 └── CONTINUATION-PROMPT-REQUIREMENTS.md ← This file
@@ -68,12 +80,22 @@ spp-porting-cockpit/
 | **Audience** | Production overseer + business stakeholders | Hermes workers + Reviewer (technical) |
 | **Stability** | Stable across implementation rewrites | Drifts when code changes |
 | **Tone** | Plain language, intent-focused | Precise, code-quoting, defensive |
-| **Grouping** | By **business motion** (e.g. "mixing", "blanking") | By **Console process** (e.g. "Master Batch Mixing") |
-| **Per process count** | 1 requirement folder covers 1-3 related processes | 1 spec folder per process |
+| **Grouping** | Prefer one requirement folder per Console process unless a true shared business motion is intentionally grouped | By **Console process** (e.g. "Master Batch Mixing") |
+| **Per process count** | Usually 1 requirement folder per process; grouped packs must explain the grouping | 1 spec folder per process |
 
 ### How they link
 
 Each requirement entry in `01-requirements/<motion>/08-traceability.md` maps to specification section(s) in `02-specifications/<process>/`. A requirement-without-spec is either a feature gap (acceptable but flagged) or a missing implementation (must be addressed). A spec-without-requirement is either a missing requirement entry (preferred fix) OR a candidate for code removal (rare).
+
+For implementation/refactor work, requirements grouping does **not** define the work unit. Refactor work should usually be sent one Console process at a time, using:
+
+| Refactor input | Purpose |
+| --- | --- |
+| One process-specific spec folder | Shows what the current implementation is believed to do |
+| The matching rows from the grouped requirement pack | Shows what the process must satisfy in the end-to-end flow |
+| The actual app code | Confirms whether implementation matches both requirement and spec |
+
+Every requirement pack's `08-traceability.md` should therefore include a short **process refactor handoff matrix** whenever the pack groups multiple Console processes.
 
 ---
 
@@ -100,17 +122,19 @@ Each requirement entry in `01-requirements/<motion>/08-traceability.md` maps to 
 - `AC-<MOTION-3LETTER>-NNN` for acceptance criteria
 - `OOS-<MOTION-3LETTER>-NNN` for out-of-scope items
 
-Example motion prefixes: `MIX` (mixing), `INS` (inspection), `SHC` (sheeting-cutting), `BLK` (blanking), `PLN` (planning), `MLD` (moulding).
+Example motion prefixes: `MIX` (mixing), `INS` (compound inspection/deviation), `SHT` (sheeting), `CBT` (cut-bit transfer), `BCR` (bulk clip release), `BDE` (blanking dc entry), `BIE` (blank bin inward entry), `BBI` (blank bin issue), `WPL` (work planning), `AWP` (add-on work planning), `MPE` (moulding production entry), `IE` (inspection entry).
 
 ---
 
 ## Grouping decision — by business motion
 
-Requirements group **multiple Console processes** into one folder when they share:
+Requirements may group **multiple Console processes** into one folder when they share:
 - The same shop-floor workflow
 - The same operator role(s)
 - The same legacy doctype OR closely-related legacy doctypes
 - The same business stakeholders (QA Lead, Shop Floor Supervisor, etc.)
+
+However, when the user's review goal is refactor alignment, prefer **one requirement folder per Console process**. This makes requirement vs specification vs code comparison easier for workers.
 
 Locked grouping:
 
@@ -118,14 +142,20 @@ Locked grouping:
 |---|---|
 | `mixing-process/` | Master Batch Mixing + Final Batch Mixing |
 | `inspection-process/` | Compound Inspection + Compound Deviation |
-| `sheeting-and-cutting/` | Sheeting Process + Cut Bit Transfer + Bulk Clip Release |
-| `blanking/` | Blanking DC Entry + Blank Bin Inward Entry + Blank Bin Issue |
-| `production-planning/` | Add On Work Planning (+ Work Planning if implemented) |
-| `moulding/` | Moulding Production Entry + Inspection Entry (Line/Patrol/Lot) |
+| `sheeting-process/` | Sheeting Process |
+| `cut-bit-transfer/` | Cut Bit Transfer |
+| `bulk-clip-release/` | Bulk Clip Release |
+| `blanking-dc-entry/` | Blanking DC Entry |
+| `blank-bin-inward-entry/` | Blank Bin Inward Entry |
+| `blank-bin-issue/` | Blank Bin Issue |
+| `work-planning/` | Work Planning |
+| `add-on-work-planning/` | Add On Work Planning |
+| `moulding-production-entry/` | Moulding Production Entry |
+| `inspection-entry/` | Inspection Entry |
 
-**Total:** 6 requirement folders mapping to ~13 spec folders.
+**Total:** 12 requirement folders mapping to ~13 spec folders.
 
-Note: `moulding/` groups MPE with the Inspection Entry sub-processes because MPE blocks on inspection completion — the requirements are tightly coupled. Alternative: separate `inspection-entry/` motion. Use your judgment when you scaffold; the pilot mixing-process grouped MB+FB which had clear shared workflow.
+Note: `sheeting-process/`, `cut-bit-transfer/`, and `bulk-clip-release/` are intentionally separated even though they share one end-to-end shop-floor corridor. The user wants process-scoped requirement folders so refactor workers can compare each Console process against its own specification folder. Keep cross-process dependencies in traceability, but do not merge those folders again.
 
 ---
 
@@ -151,7 +181,9 @@ Every business motion has a load-bearing story. Examples:
 |---|---|
 | **Mixing** | Two-stage compound production; DCR reuse on legacy; mass balance NOT enforced (deferred decision); cut-bit recycling loop |
 | **Inspection** (to write) | Polymorphic QA flow; rejected lots route to Compound Deviation for QM signoff; the saga that drove the 5-step pattern |
-| **Sheeting-and-Cutting** (to write) | Multi-output process (clips + cut-bits); clip mapping race (BCR-1); recycling loop back to mixing |
+| **Sheeting Process** | Multi-output process (clips + cut-bits); clip mapping race (BCR-1); output identity creation |
+| **Cut Bit Transfer** | Repack/recycling process; clip/bin validation; `Cutbit_` and `CB_` conventions |
+| **Bulk Clip Release** | Clip state transition; active mapping retirement; no stock entry |
 | **Blanking** (to write) | Stateful bin lifecycle; Asset Movement creates bins; bin issue links bins to Job Cards |
 | **Production-Planning** (to write) | Lot # generation authority (Console-first); BOM validation; Job Card cross-reference |
 | **Moulding** (to write) | The terminal process; mass balance enforced; Inspection Entry preconditions; batch_no generation cascade |
@@ -182,6 +214,10 @@ Use the mixing-process pilot as your direct template. Match:
 6. **Use tables wherever they help.** Same preference as specs — high signal-to-noise.
 
 7. **Avoid duplicating specs.** If the spec already describes a code mechanism in detail, the requirement should just say "the system must X" without explaining how. Cross-reference via 08-traceability.
+
+8. **Keep refactor handoff process-scoped.** If a requirement folder groups multiple processes, add a process handoff table in `08-traceability.md` that says which requirement rows belong to each implementation/refactor unit.
+
+9. **Make the alignment review explicit.** `08-traceability.md` should help compare Requirement vs Specification vs Code Implementation. Use statuses such as `Aligned`, `Partial`, `Drift`, `Spec stale`, and `Not implemented`.
 
 ### Step 4: Verify and report
 
@@ -228,7 +264,7 @@ If you find these, **add a new requirement entry** rather than leaving the spec 
 
 ---
 
-## What to do per remaining motion
+## Motion status and source notes
 
 ### Motion #2 — inspection-process (DONE — Codex)
 
@@ -257,86 +293,188 @@ If you find these, **add a new requirement entry** rather than leaving the spec 
 - Rejected CIs intentionally skip Legacy; this must be explained in UAT/UI as target intent, not mistaken for a failed Legacy leg.
 - Old per-type doctypes remain supported for historical records, but requirements prefer unified `Console Inspection` for new inspection submissions.
 
-### Motion #3 — sheeting-and-cutting (NEXT)
+### Motion #3 — sheeting-process (DONE — Codex)
 
-**Covers:** Sheeting Process + Cut Bit Transfer + Bulk Clip Release
+**Covers:** Sheeting Process
 
 **Specs to reference:**
 - `02-specifications/sheeting-process/` (already exists)
+
+**The story:** Sheeting branches accepted compound into multiple output identities: clips move forward toward Blanking, while cut-bit output rows become a source for the recycling path. The load-bearing invariant is the inline clip-mapping write, because downstream scans may happen before external Legacy/Ops sync completes.
+
+**Numbering prefix:** `SHT` (e.g. FR-SHT-001).
+
+**Key findings Codex surfaced:**
+- BCR-1 inline clip mapping is not just implementation detail; it is required to prevent downstream scan races.
+- Legacy Sheeting must receive both `batches` and `sheeting_clip` child tables.
+- `cutbit_qty` must equal the sum of cut-bit output rows.
+- Warehouse fallback remains a controlled risk.
+- Ops impacted clip backfill needs reconciliation handling.
+
+### Motion #4 — cut-bit-transfer (DONE — Codex)
+
+**Covers:** Cut Bit Transfer
+
+**Specs to reference:**
 - `02-specifications/cut-bit-transfer/` (already exists, Codex-written)
+
+**The story:** Cut Bit Transfer repacks reusable clip/bin material into standard cut-bit stock. It is not new manufacturing; it repairs material identity into `Cutbit_<item_code>` batch and `CB_<item_code>` mix barcode for Final Batch Mixing.
+
+**Numbering prefix:** `CBT` (e.g. FR-CBT-001).
+
+**Key findings Codex surfaced:**
+- Target batch and mix barcode conventions are load-bearing: `Cutbit_` and `CB_`.
+- Ops dedicated handler must keep `run_legacy_sync=False` when Console owns orchestration.
+- Clip-source CBT does not retire the clip mapping.
+- Bin-source CBT reduces or retires bin quantity.
+- Field names drift between `spp_batch_no` and `spp_batch_number`.
+
+### Motion #5 — bulk-clip-release (DONE — Codex)
+
+**Covers:** Bulk Clip Release
+
+**Specs to reference:**
 - `02-specifications/bulk-clip-release/` (already exists, Codex-written)
 
-**The story:** Sheeting branches material into two streams (clips → blanking; cut-bits → back to mixing). Cut Bit Transfer consolidates reusable material. Bulk Clip Release moves clips from sheeting to blanking floor. The motion is the central recycling and routing logic.
+**The story:** Bulk Clip Release is a clip-state transition, not manufacturing. It retires active clip mappings so downstream Blanking/reuse does not see stale occupied clips, and it must not create Stock Entry records.
 
-**Key requirement themes:**
-- The BCR-1 inline clip-mapping write (preserves downstream lookup invariant)
-- The `Cutbit_` prefix convention for recycled material
-- The `CB_` prefix convention for cut-bit mix barcodes
-- Two child tables on legacy Material Transfer (`batches` + `sheeting_clip`)
-- Cut Bit's dedicated Ops handler + the `run_legacy_sync=False` invariant
-- Three-way warehouse routing (Compound → sheeting_wh, blanking_ig → unit2_wh, else → blanking_wh)
-- Weak Legacy idempotency for CBT (10-minute window vs reference_id)
+**Numbering prefix:** `BCR` (e.g. FR-BCR-001).
 
-**Numbering prefix:** `SHC` (e.g. FR-SHC-001).
+**Key findings Codex surfaced:**
+- Bulk Clip Release Dash currently sends `process_type`, while the standard orchestrator expects `process_code`; requirements mandate canonical `process_code = BULK_CLIP_RELEASE`.
+- Bulk Clip Release has a real doctype/controller intent, but the standard local-create branch and callback routing are incomplete; requirements prefer the audit-first path over direct helper retirement.
+- Bulk Clip Release bridge child mapping drifts from Legacy child fields and can confuse barcode text with document name; requirements mandate explicit resolution for both identifiers.
+- Direct helper release is fallback, not preferred design.
+- Local mirror retirement timing must be explicit.
 
-### Motion #4 — blanking
+### Motion #6a — blanking-dc-entry (DONE — Codex correction)
 
-**Covers:** Blanking DC Entry + (planned) Blank Bin Inward Entry + (planned) Blank Bin Issue
+**Covers:** Blanking DC Entry
 
 **Specs to reference:**
 - `02-specifications/blanking-dc-entry/` (already exists, Codex-written)
-- Wave 2 + Wave 3 plan docs at `/Users/alphaworkz/frappe-bench/spp_process_docs/console_porting/02_WAVE2.md` and `03_WAVE3.md`
+- Legacy code: `shree_polymer_custom_app/.../doctype/blanking_dc_entry/`
+- Site records: `spp15.local` has 13260 total BDE records / 13186 submitted.
 
-**The story:** Blanking turns clips into blank pieces in bins. Bins are physical assets (Asset doctype). Mass balance enforced at Net Weight = Gross - Tare. Bins get issued to Job Cards by Blank Bin Issue (Wave 3). Multiple branches (move_to_cut_bit_warehouse toggle).
-
-**Key requirement themes:**
-- Asset Movement (Receive Bin) creation
-- Bin tare weight + net weight calculation
-- BOM validation at Blanking (per produced blank)
-- Branching: standard bin path vs cut-bit repack path
-- The `move_to_cut_bit_warehouse` flag and its downstream implications
-- Bin state machine: Available → Filled (Blanking) → Inward (at Moulding) → Issued (to Job Card) → Consumed (at MPE)
-
-**Numbering prefix:** `BLK` (e.g. FR-BLK-001).
-
-### Motion #5 — production-planning
-
-**Covers:** Add On Work Planning (+ Work Planning if separate)
-
-**Specs to reference:** None shipped yet. Use plan doc `03_WAVE3.md` as primary source.
-
-**The story:** Wave 3 — production planning generates Lot numbers + Job Cards via the Bridge. The Lot # is the cross-system identity that all downstream Inspection + Moulding records reference. Open question: Console-first vs Legacy-first Lot # generation (Pattern A vs Pattern B per plan doc).
+**The story:** BDE fills a physical blanking bin from a released sheeting clip. It creates the bin-content identity through `Item Bin Mapping` and tracks physical bin movement through native `Asset Movement`.
 
 **Key requirement themes:**
-- Lot # generation authority (recommended: Console-first)
-- Job Card creation on Legacy (via whitelisted method `create_planning_with_jobcards`)
-- Work Plan Item Target validation (>10% drift from shift target throws)
-- Multi-row planning (one supervisor → many items × workstations)
-- Cross-system Job Card naming reconciliation (Legacy vs Ops)
+- Clip scan resolves active `Item Clip Mapping`
+- BOM compatibility between source compound and target mat/item
+- Bin availability and tare weight
+- Net weight = gross - bin weight
+- Legacy Asset Movement + Item Bin Mapping creation
+- Current Ops semantic drift: Ops uses Cutbit-to-PreForming Stock Entry
 
-**Numbering prefix:** `PLN` (e.g. FR-PLN-001).
+**Numbering prefix:** `BDE` (e.g. FR-BDE-001).
 
-### Motion #6 — moulding
+### Motion #6b — blank-bin-inward-entry (DONE — Codex correction)
 
-**Covers:** Moulding Production Entry + Inspection Entry (Line/Patrol/Lot variants)
+**Covers:** Blank Bin Inward Entry
 
-**Specs to reference:** None shipped yet. Use plan docs `04_WAVE4.md` and `05_WAVE5.md`.
+**Specs to reference:**
+- `02-specifications/blank-bin-inward-entry/`
+- Legacy code: `shree_polymer_custom_app/.../doctype/blank_bin_inward_entry/`
+- Site records: `spp15.local` has 1945 total BBIE records / 1919 submitted; `move_to_cut_bit_warehouse=1` dominates (1859 total).
 
-**The story:** The terminal process and highest-complexity wave. MPE consumes Blank Bins, runs against a Lot/Job Card, validates Line+Patrol inspection prerequisites, and generates the final FG batch number. Inspection Entry is a precondition — three variants (Line/Patrol/Lot) with uniqueness constraints per Lot.
+**The story:** BBIE handles a filled bin after BDE. It either creates an Asset Movement for normal inward movement or repacks the contents into cut-bit stock, retiring the source bin mapping.
+
+**Numbering prefix:** `BIE` (e.g. FR-BIE-001).
+
+### Motion #6c — blank-bin-issue (DONE — Codex correction)
+
+**Covers:** Blank Bin Issue
+
+**Specs to reference:**
+- `02-specifications/blank-bin-issue/` is currently empty.
+- Legacy code: `shree_polymer_custom_app/.../doctype/blank_bin_issue/`
+- Site records: `spp15.local` has 68078 total BBI records / 67309 submitted.
+
+**The story:** BBI binds a bin to a Moulding Job Card/Lot. It is a logical issue/reservation, not a Stock Entry or Asset Movement.
+
+**Numbering prefix:** `BBI` (e.g. FR-BBI-001).
+
+### Motion #7 — work-planning (DONE — Codex correction)
+
+**Covers:** Work Planning
+
+**Specs to reference:** Dedicated cockpit spec is missing. Use Legacy code as primary source:
+- `shree_polymer_custom_app/.../doctype/work_planning/work_planning.py`
+- `shree_polymer_custom_app/.../doctype/work_planning/work_planning.json`
+- `shree_polymer_custom_app/.../doctype/work_planning/work_planning.js`
+
+**The story:** Work Planning is the official base production plan for a shift. It may contain multiple products, but Legacy enforces one submitted Work Planning per date + shift series. It creates Work Orders and Job Cards, and the Job Card Lot # becomes the downstream identity for Blank Bin Issue, Inspection, and Moulding.
+
+**Key requirement themes:**
+- One submitted Work Planning per date + shift series
+- Multiple item rows per shift plan
+- Work Plan Item Target validation by item + shift time
+- Work Order and Job Card creation
+- Cancellation blocked once BBI or MPE references the Job Card Lot #
+- Separate process identity from Add On Work Planning
+
+**Numbering prefix:** `WPL` (e.g. FR-WPL-001).
+
+### Motion #8 — add-on-work-planning (DONE — Codex correction)
+
+**Covers:** Add On Work Planning
+
+**Specs to reference:**
+- `02-specifications/add-on-work-planning/` exists and is now scoped to supplemental Add On Work Planning only.
+- Legacy code remains authority for behavior: `shree_polymer_custom_app/.../doctype/add_on_work_planning/`.
+
+**The story:** Add On Work Planning is supplemental production planning. It uses similar Work Order / Job Card mechanics but does not enforce the one-plan-per-shift rule. It must remain separate from Work Planning in requirements because the shift uniqueness semantics differ.
+
+**Key requirement themes:**
+- Supplemental planning beyond the official shift Work Planning
+- Multiple add-on records may exist for the same shift unless process owner changes rule
+- Uses `Add On Work Plan Item`, not `Work Plan Item`
+- Creates additional Work Orders and Job Cards
+- Cancellation blocked once downstream BBI or MPE references the Lot #
+
+**Numbering prefix:** `AWP` (e.g. FR-AWP-001).
+
+### Motion #9a — moulding-production-entry (DONE — Codex, split/corrected)
+
+**Covers:** Moulding Production Entry only.
+
+**Specs to reference:** `02-specifications/moulding-production-entry/` exists but is empty. Use legacy code and live `spp15.local` records as primary source.
+
+**The story:** MPE is the terminal production booking. It consumes open Blank Bin Issue rows, validates Line+Patrol Inspection Entry prerequisites, applies legacy production tolerance behavior, creates/submits the Manufacture Stock Entry, completes Job Card/Work Order, and cascades the produced batch to inspection rejection entries.
 
 **Key requirement themes:**
 - Inspection prerequisite enforcement (MPE blocks without Line+Patrol)
-- Mass balance ENFORCED here (1% tolerance) — the one place it's a hard throw
+- Production tolerance parity with `SPP Settings.production_tolerance` (do not hard-code unverified 1% behavior)
 - Real-time stock validation
 - Partial bin handling (operator weighs remainder)
 - FIFO / specific-batch allocation
-- Batch # generation cascade (MPE generates batch_no, propagates back to all Inspection Entries for the lot)
+- Batch generation through legacy `generate_batch_no` contract
 - Injection moulding variant (`purged_compound` + `compound_leakage`)
-- Cascading SE submissions (rejection SEs from inspections submit after MPE batch_no materialises)
+- Cascading Line/Patrol rejection SE submissions after MPE batch_no materialises
 
-**Numbering prefix:** `MLD` (e.g. FR-MLD-001).
+**Numbering prefix:** `MPE` (e.g. FR-MPE-001).
 
-This is the **largest motion**. Estimated requirements pack size: 1500-2000 lines.
+Live evidence used: 30,006 MPE records on `spp15.local`, 28,931 submitted; 613 injection records.
+
+### Motion #9b — inspection-entry (DONE — Codex, split/corrected)
+
+**Covers:** Unified Inspection Entry DocType.
+
+**Specs to reference:** `02-specifications/inspection-entry/` exists but is empty. Use legacy code and live `spp15.local` records as primary source.
+
+**The story:** Inspection Entry is a polymorphic quality record, not only the MPE precondition screen. It handles Line, Patrol, Lot, Incoming, Final Visual, and Visual Inspection branches, creates rejection stock entries where applicable, and accepts the MPE-produced batch cascade for moulding rejection entries.
+
+**Key requirement themes:**
+- Type-aware validation and duplicate prevention
+- Required inspector, lot/context, child rows, and inspected quantity by type
+- Defect-row rejected nos/kg capture
+- MPE dependency for Line/Patrol batch cascade
+- Incoming and Final Visual branches kept visible as real live behavior
+- Drift between comments and executable SQL called out for refactor
+
+**Numbering prefix:** `IE` (e.g. FR-IE-001).
+
+Live evidence used: 124,197 Inspection Entry records on `spp15.local`, 120,663 submitted, across six inspection type values.
 
 ---
 
@@ -345,19 +483,25 @@ This is the **largest motion**. Estimated requirements pack size: 1500-2000 line
 | Motion | Author | Status | Lines |
 |---|---|---|---|
 | mixing-process | Claude | ✅ Done (pilot) | 1179 |
-| inspection-process | Codex | ✅ Done (intent + drift) | 876 |
-| sheeting-and-cutting | — | ⏳ Next | — |
-| blanking | — | Queued | — |
-| production-planning | — | Queued | — |
-| moulding | — | Queued | — |
-| **Requirements total so far** | | | **2055 lines / 18 files** |
+| inspection-process | Codex | ✅ Done (pilot-aligned intent + drift) | 1034 |
+| sheeting-process | Codex | ✅ Done (process-scoped correction) | 269 |
+| cut-bit-transfer | Codex | ✅ Done (process-scoped correction) | 252 |
+| bulk-clip-release | Codex | ✅ Done (process-scoped correction) | 242 |
+| blanking-dc-entry | Codex | ✅ Done (Legacy/site-derived correction) | 272 |
+| blank-bin-inward-entry | Codex | ✅ Done (Legacy/site-derived correction) | 267 |
+| blank-bin-issue | Codex | ✅ Done (Legacy/site-derived correction) | 267 |
+| work-planning | Codex | ✅ Done (Legacy-derived correction) | 343 |
+| add-on-work-planning | Codex | ✅ Done (Legacy-derived correction) | 277 |
+| moulding-production-entry | Codex | ✅ Done (Legacy/site-derived split) | 305 |
+| inspection-entry | Codex | ✅ Done (Legacy/site-derived split) | 275 |
+| **Requirements total so far** | | | **4983 lines / 108 files** |
 
-Expected total at completion: ~7,000-10,000 lines across ~54 files (6 motions × 9 files each).
+Current completed requirements layer: 4983 lines across 108 files.
 
 **Combined with specifications layer:**
-- Specs: 9736 lines / 77 files (7 of 8 processes done) → projected ~12-15k lines at completion
-- Requirements: 2055 lines / 18 files (2 of 6 motions done) → projected ~7-10k lines at completion
-- **Total cockpit at completion:** ~20-25k lines / ~110-120 files
+- Specs: 13556 lines / 121 files (11 process specs done) → projected ~15-18k lines at completion
+- Requirements: 4983 lines / 108 files; Sheeting, Cut Bit Transfer, Bulk Clip Release, BDE, BBIE, BBI, Work Planning, Add On Work Planning, Moulding Production Entry, and Inspection Entry are now separate requirement identities.
+- **Current documented cockpit:** 18539 lines / 229 files across requirements + specifications
 
 ---
 
@@ -392,11 +536,11 @@ Your first message after reading this prompt should:
 1. Confirm you've read and understood:
    - The cockpit at `/Users/alphaworkz/spp-porting-cockpit/`
    - The mixing-process pilot at `01-requirements/mixing-process/` (read all 9 files)
-   - The relevant specifications for the next motion (sheeting-and-cutting: read `sheeting-process/`, `cut-bit-transfer/`, and `bulk-clip-release/`)
+   - The relevant specifications for the next motion (blanking: read `blanking-dc-entry/` and the Wave 2/Wave 3 plan docs for planned bin flows)
 2. Briefly state the motion's "story" in 2-3 sentences
 3. List the 5 most important business rules you'll capture
 4. State your plan for the first 30 minutes of work (spec reading → file writing in order README → 01 → 02 → ...)
-5. Ask ONE focused question — typically "Should I proceed with sheeting-and-cutting requirements using the mixing-process and inspection-process packs as templates?"
+5. Ask ONE focused question — typically "Should I proceed with blanking requirements using the completed requirement packs as templates?"
 
 After the user confirms, execute. Don't ask permission to read files or write requirement files — just do it.
 
@@ -407,7 +551,7 @@ When you finish each motion, deliver the same summary shape:
 - Running tally update
 - One focused question (typically the next motion)
 
-Then continue: sheeting-and-cutting → blanking → production-planning → moulding.
+Then continue using separate process identity: blanking → work-planning → add-on-work-planning → moulding.
 
 **Match the tone:** concise, table-heavy, plain language, direct opinions, one question at a time.
 

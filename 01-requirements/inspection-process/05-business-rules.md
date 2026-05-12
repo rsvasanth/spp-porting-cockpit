@@ -1,98 +1,154 @@
 # 05 — Business rules
 
-Business rules explain the durable why behind the requirements.
+These are the constraints, invariants, and "why" decisions that drive the specifications. Each rule explains the **business reasoning** behind an implementation choice.
 
-## BR-INS-001 — Inspection is a gate, not production
+## BR-INS-001 — CI and CD produce the same legacy doctype
 
-Inspection does not create material. It changes the allowed disposition of material that already exists.
+**Rule:** Both Compound Inspection and Compound Deviation submissions create rows in legacy `Compound Inspection`. Status field discriminates: Accepted/Rejected from QI; Accepted/Rejected/Rework from QM with `quality_approver_*` fields populated.
 
-**Why:** Mixing owns compound creation. Inspection protects downstream processes from consuming material that has not passed QA.
+**Why:** Legacy's design treats "the QA decision about this compound batch" as one event with optional QM override. Maintaining two legacy doctypes would have required additional reporting changes and confusing user training. Reusing one doctype with discriminating status keeps legacy reports working and operator mental model simple.
 
-## BR-INS-002 — Failed readings produce Rejected CI
+**Implication:** Any change to legacy `Compound Inspection` schema affects both CI and CD; coordinate together.
 
-If any required reading is out of spec, the Compound Inspection must be Rejected.
+## BR-INS-002 — Factory-requirement skip on Rejected CIs
 
-**Why:** The inspector records lab truth. The override decision belongs to a Quality Manager, not the original inspection.
+**Rule:** A Rejected CI submission must NOT POST to the Legacy Bridge. Only the Ops leg fires. The Console record stays in `sync_status="Partial"` until a later CD closes the Legacy gap.
 
-## BR-INS-003 — Rejected CIs skip Legacy until Deviation
+**Why:** Operations chose this pattern because:
+1. A Rejected CI without QM signoff is **inconclusive** from the Legacy reporting perspective — the compound's fate is unknown
+2. Creating a Legacy CI record with `status="Rejected"` would prematurely commit to a write-off in Legacy reports
+3. Allowing the QM to make the real decision (via CD) ensures the Legacy record reflects the final disposition, not an intermediate state
 
-Rejected Compound Inspections must not route to Legacy immediately.
+**Implementation:** `initialize_submission` in api.py:1009 explicitly skips the Legacy leg when `process_code == "COMPOUND_INSPECTION"` AND `context.status == "Rejected"`.
 
-**Why:** Legacy represents final QA disposition with stock side effects. Sending both the initial rejection and the later Deviation can duplicate or confuse legacy stock behavior.
+**Decision authority:** Operations / QA leadership — this is a fixed business rule, not a per-submission choice.
 
-## BR-INS-004 — Deviation is the formal QM disposition
+## BR-INS-003 — Empty-mapping pattern for Compound Deviation
 
-A rejected compound can move again only after a Quality Manager records a Deviation decision.
+**Rule:** `Legacy Sync Mapping` for `COMPOUND_DEVIATION` has an empty `field_mappings` list. All field population is done in Python by `populate_compound_deviation_fields` in the Bridge.
 
-**Why:** This preserves accountability and prevents informal shop-floor bypasses.
+**Why:** Compound Deviation needs:
+1. Multi-step identity resolution (`_resolve_compound_identity` → `_lookup_legacy_stock_entry` → 6-strategy chain) that the declarative mapping engine cannot express
+2. Conditional field setting (only set if currently empty — idempotent re-runs)
+3. Shared helpers with Compound Inspection — both use the same identity pipeline
 
-## BR-INS-005 — Only three Deviation statuses are valid
+The empty-mapping pattern delegates all logic to Python while keeping the mapping doctype as a routing shell. The mapping engine knows "for `COMPOUND_DEVIATION`, create a `Compound Inspection` legacy doc"; everything else happens in `populate_compound_deviation_fields`.
 
-Accepted, Rejected, and Rework are the supported business outcomes.
+**Origin:** Established during the saga's 2026-04-30 helper-refactor commit (`1df2de8` or similar). The previous implementation had ~200 lines of duplicated SE lookup logic that drifted out of sync with the Console payload shape.
 
-| Status | Why it exists |
-|---|---|
-| Accepted | Allows controlled override |
-| Rejected | Removes bad material |
-| Rework | Keeps material pending correction |
+**Implication for Hermes workers:** Adding `field_mappings` rows to `COMPOUND_DEVIATION` would duplicate Python logic and create drift. Don't.
 
-## BR-INS-006 — Deviation lands as legacy Compound Inspection
+## BR-INS-004 — Two-block CD payload (compound_inspection_data + compound_deviation_data)
 
-Legacy receives Deviation as `Compound Inspection`.
+**Rule:** A CD payload must include:
+1. `compound_inspection_data` — same shape as an Accepted CI payload (identity + readings)
+2. `compound_deviation_data` — QM-specific fields (status, approver, reason)
 
-**Why:** Legacy reports and controller stock behavior already understand that doctype. A new legacy doctype would split the historical quality record.
+**Why:** The CD payload was historically structured as a single block with deviation-specific fields. During the saga, Console refactored to emit identity in `compound_inspection_data` (matching the CI shape exactly) and deviation specifics in a thin separate block. This let the Bridge run the **same** identity pipeline for both Accepted CIs and Deviations.
 
-## BR-INS-007 — Empty mapping for Deviation is intentional
+**Origin:** Saga's 2026-04-30 Console payload refactor (commit `458eb5c`).
 
-Deviation field population should stay in Bridge Python helpers, not declarative mapping rows.
+**Cross-implication:** Any change to the CI payload shape must also be reflected in CD's `compound_inspection_data` block. Drift here breaks the shared identity pipeline.
 
-**Why:** The Bridge must resolve identity, Stock Entry, readings, and Deviation extras in a coordinated way. The mapping engine cannot express that safely.
+## BR-INS-005 — Status-conditional Ops behavior
 
-## BR-INS-008 — Shared identity lookup must not fork
+**Rule:** The Ops side's Stock Entry creation is conditional on inspection status:
 
-Compound Inspection and Deviation must use the same identity and Stock Entry lookup pipeline.
+| Status | Ops SE created? | SE Purpose |
+|---|---|---|
+| `Accepted` (CI or CD) | Yes | Material Transfer (compound → ready warehouse) |
+| `Rejected` (CD only — CI Rejected doesn't reach Ops at submit time per BR-INS-002 + factory-requirement skip) | Yes | Material Issue / write-off (compound → scrap warehouse) |
+| `Rework` (CD only) | No | Compound stays in inspection-WIP; operator returns it to mixing |
 
-**Why:** The 2026-04-30 bug came from duplicated lookup logic drifting after payload shape changed.
+**Why:** Each status has a different inventory consequence. Accepted means the compound is good for production; Rejected means write off the inventory loss; Rework means physical relocation only, no ledger movement.
 
-## BR-INS-009 — The 5-step callback pattern is business-critical
+**Implementation:** Driven by the Ops `Console Process Template` action row's `condition` field (`status == 'Accepted'` etc.). The generic TransactionEngine skips actions whose conditions evaluate to False.
 
-The business rule is: target responses must not falsely leave a fully synced record as Partial.
+## BR-INS-006 — cavity_no fallback to 1 (active TODO)
 
-**Why:** Operators and supervisors make retry/escalation decisions based on this status. The Compound Deviation saga proved this was not theoretical.
+**Rule:** When the Console payload does not include `cavity_no`, the Bridge's `_apply_deviation_extras` defaults to `cavity_no = 1` on the legacy Compound Inspection. Every fallback fire emits a structured log entry.
 
-## BR-INS-010 — Deviation reason minimum
+**Why:** Legacy `Compound Inspection.validate()` makes `cavity_no` mandatory. The Console architecture intended to wire this field through (it appears in Process Template + Bridge mapping) but the wiring is incomplete: no field on `Console Inspection` doctype, no Dash input, payload doesn't carry it. Default-to-1 is a pragmatic patch that keeps submissions flowing while the wiring is tracked.
 
-Deviation reason must be at least 5 characters.
+**Risk:** Multi-cavity moulds (rare but non-zero) are incorrectly recorded as single-cavity. Production data quality suffers for those runs.
 
-**Why:** Short entries like "ok" do not create an audit trail. The reason is the business justification for overriding or disposing material.
+**Bug ref:** Reference ID `1777721078171` (staging, 2026-05-02).
 
-## BR-INS-011 — One active Deviation per rejected CI
+**Resolution path:** Add `cavity_no` to `Console Inspection` doctype + Dash input + payload include → remove the Bridge fallback. Estimated effort: 1 hour.
 
-The same rejected CI cannot have two active Deviation decisions.
+**Decision needed:** Whether to prioritise this wiring now or accept the default-to-1 long-term. Recommended: wire properly (high data-quality benefit, low effort).
 
-**Why:** Two dispositions for one material lot create stock and audit contradiction.
+## BR-INS-007 — Race-safe callback aggregation (the saga invariant)
 
-## BR-INS-012 — `cavity_no` matters
+**Rule:** When Ops and Legacy callbacks land near-simultaneously on Console doctype's `apply_bridge_result`, the final `sync_status` must reflect actual DB state — not stale in-memory state.
 
-`cavity_no` should be captured end-to-end when available.
+**Why (saga history):**
+- The Compound Deviation saga of 2026-04-29 → 2026-05-01 demonstrated that two callbacks running concurrently both read `self` (stale), both compute aggregate from their stale view, and the slower callback regresses an earlier `Success` to `Partial`
+- The 5-step pattern enforces:
+  1. Atomic per-leg `db.set_value`
+  2. Re-read both legs from DB
+  3. Aggregate from DB state
+  4. **Self-heal** — if both legs Synced but `sync_status != Success`, correct it
+  5. **Fresh-doc submit** — `frappe.get_doc(name)` to avoid stale in-memory state
 
-**Why:** Multi-cavity runs are rare but real. Defaulting to 1 preserves operation but loses data quality.
+**Status:** Implemented byte-identically across all three inspection doctypes (Console Inspection, Console Compound Inspection, Console Compound Deviation) and 4 other Wave 1 doctypes.
 
-## BR-INS-013 — Status-skipped Ops actions can still be success
+**Critical:** Any future change to callback handling MUST preserve this contract. A concurrency test is the canonical regression check.
 
-If Ops skips an action because the status condition is false, that can still be a successful target leg.
+## BR-INS-008 — QM role required for CD
 
-**Why:** Not every quality decision creates a Stock Entry. A skipped action is not automatically a failed sync.
+**Rule:** Submitting a CD requires the Console User to have `Quality Manager` role (or higher: System Manager / Administrator). Quality Inspectors cannot submit CD.
 
-## BR-INS-014 — Original readings are not rewritten by Deviation
+**Why:**
+- QM signoff is the audit-critical decision — only QMs are trained to authorise deviation decisions
+- Separating CI (QI) from CD (QM) enforces decision rights at the UI layer
+- Audit-trail accountability: every CD record has a QM signature
 
-Deviation can carry readings forward, but it must not change the source CI's lab facts.
+**Implementation:** Enforced at three layers: Frappe doctype permissions, Dash UI button gating, server-side `get_available_employees` filter on operator dropdown.
 
-**Why:** QA results and QM disposition are separate audit facts.
+## BR-INS-009 — Deviation reason minimum 5 characters
 
-## BR-INS-015 — Unified inspection is the target model
+**Rule:** `deviation_reason` field on CD must be at least 5 characters when submitted through the Desk UI / strict path. The audit-trail bypass path (`_safe_local_create`) does not enforce this.
 
-New inspection-type work should use `Console Inspection` and Process Template configuration.
+**Why:** During the saga, some operators submitted "ok" or "yes" as the reason. The 5-char minimum forces a real explanation. The audit-trail bypass is exempt because a record with even a bad reason is better than a missing record for diagnostics.
 
-**Why:** It gives one reporting surface and avoids another round of per-type doctype drift.
+**Where enforced:** Controller `validate()` in `console_compound_deviation.py` and `console_inspection.py` (when `inspection_type="Compound Deviation"`).
 
+## BR-INS-010 — One deviation per source CI
+
+**Rule:** Each Rejected CI should have at most one CD overlay (in non-cancelled state). Multiple CDs on the same CI would create ambiguous final disposition.
+
+**Why:** A CD is the authoritative final decision. Multiple CDs would imply the QM changed their mind — which is operationally rare and should require explicit cancellation of the prior CD.
+
+**Implementation status:** Enforced at the Dash layer (CD submit button hidden if existing non-cancelled CD found for the source CI). NOT enforced at the backend with a unique constraint — recommended future addition.
+
+## BR-INS-011 — 6-strategy SE lookup priority
+
+**Rule:** The Bridge's `_lookup_legacy_stock_entry(identity)` tries six resolution strategies in priority order. Each strategy covers a real production case; deletion requires zero-hit proof.
+
+**Why:**
+1. `mix_barcode == spp_batch_no` — most common (Console-generated barcode)
+2. `spp_batch_number` stripped of `C_` prefix — legacy without prefix
+3. Direct `spp_batch_number` match
+4. `mix_barcode` vs payload — when they differ
+5. Compound format `{item_code}_{spp_batch_no}` — Sheeting synthesis
+6. `batch_no` fallback — last-ditch
+
+This chain is the result of years of legacy data variations. The 6 strategies cover every real shape of compound identity in the legacy install.
+
+**New strategies should be appended at the end**, never inserted at higher priority. Removing a strategy requires `Legacy Bridge Log` review showing zero hits via that path for at least 90 days.
+
+## BR-INS-012 — Shared identity helpers with Compound Inspection
+
+**Rule:** `populate_compound_deviation_fields` calls the same helpers as `populate_compound_inspection_fields`:
+- `_resolve_compound_identity(data)`
+- `_lookup_legacy_stock_entry(identity)`
+- `_apply_compound_identity_to_doc(doc, identity, se_lookup)`
+- `_apply_compound_header_to_doc(doc, data)`
+- `_apply_compound_readings_to_doc(doc, data)`
+
+CD then adds `_apply_deviation_extras(doc, data)` on top.
+
+**Why:** Single source of truth for identity resolution. Pre-saga, CI and CD had separate ~200-line identity pipelines that drifted apart. Consolidation in 2026-04-30 refactor eliminated drift surface.
+
+**Implication:** Changes to identity logic affect BOTH CI and CD. Coordinate tests.

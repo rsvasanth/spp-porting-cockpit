@@ -1,51 +1,43 @@
 # Inspection Process — Business Requirements
 
-**Business motion:** QA disposition of compound after mixing.
-**Console processes covered:** Compound Inspection and Compound Deviation.
-**Legacy doctype target:** `Compound Inspection`.
-**Ops doctype target:** ERPNext `Stock Entry` through the generic MES Transaction Engine.
+**Business motion:** Quality acceptance + deviation workflow for compound batches.
+**Console processes covered:** Compound Inspection (CI) + Compound Deviation (CD).
+**Legacy doctype target:** `Compound Inspection` (single doctype; CD writes the same doctype with status set by QM).
+**Ops doctype target:** ERPNext `Stock Entry` (status-conditional: Material Transfer if Accepted, Material Issue if Rejected, none if Rework) via the generic MES Transaction Engine.
 
-This folder captures what the business needs from compound QA: decide whether a mixed compound can proceed, and when it cannot, make a Quality Manager decision that is auditable and recoverable.
+This document captures what the **business** needs the system to do. It is intentionally implementation-agnostic where possible. For "how it actually works today," see:
 
-For the technical reality, read:
+- [`../../02-specifications/compound-deviation/`](../../02-specifications/compound-deviation/) — particularly the Saga narrative in §09
+- Console Inspection unification spec (TBD — Phase 1-4 work)
 
-- [`../../02-specifications/compound-deviation/`](../../02-specifications/compound-deviation/)
-- `../../02-specifications/console-inspection-unification/` once written
+## Why CI + CD share one requirements folder
 
-## Why CI + Deviation share one requirements folder
+From Legacy's perspective, **CD is a CI**. Both produce the same legacy doctype (`Compound Inspection`) — they differ only in `status` field value, `quality_approver_*` fields, and downstream Stock Entry behavior. They share:
 
-Compound Inspection and Compound Deviation are one business motion. The first records the lab result. The second records the Quality Manager disposition when the lab result rejects the material.
+- The same compound identity resolution pipeline (`_resolve_compound_identity` + `_lookup_legacy_stock_entry` + the 6-strategy chain)
+- The same Phase 3 unified Console doctype (`Console Inspection`)
+- The same Bridge populate pipeline (CD uses CI's helpers + `_apply_deviation_extras`)
+- The same race-safe 5-step callback pattern (saga-validated)
 
-| Process | Business role | Main decision |
-|---|---|---|
-| Compound Inspection | Quality Inspector | Is this compound within spec? |
-| Compound Deviation | Quality Manager | What happens to rejected compound? |
+Grouping them keeps the shared invariants in one place. Variant-specific requirements are tagged `[CI-only]` or `[CD-only]` within each file.
 
-The legacy system also treats Deviation as a variant of `Compound Inspection`, not a separate legacy doctype. Grouping the requirements here keeps that business truth visible.
+## The saga origin
+
+**This motion is where the 5-step `apply_bridge_result` pattern and the program's test-gate rule were forged.** The Compound Deviation saga of 2026-04-29 → 2026-05-01 — multiple sequential fixes shipping without test coverage, each introducing new race conditions — drove the cockpit's production rules. Read [`../../02-specifications/compound-deviation/09-rollout-and-history.md`](../../02-specifications/compound-deviation/09-rollout-and-history.md) for the full timeline before touching anything in this motion.
 
 ## Files in this folder
 
 | File | What it answers |
 |---|---|
-| [01-purpose.md](01-purpose.md) | Why inspection exists and how it protects the production chain |
-| [02-actors-and-roles.md](02-actors-and-roles.md) | Quality Inspector, Quality Manager, production overseer, and system actors |
-| [03-functional-requirements.md](03-functional-requirements.md) | Numbered requirements `FR-INS-NNN` |
-| [04-non-functional-requirements.md](04-non-functional-requirements.md) | Speed, reliability, audit, data integrity, maintainability |
-| [05-business-rules.md](05-business-rules.md) | Load-bearing decisions and why they exist |
-| [06-acceptance-criteria.md](06-acceptance-criteria.md) | Plain-language UAT scripts |
+| [01-purpose.md](01-purpose.md) | Why CI + CD exist as a coupled pair; position in the manufacturing chain |
+| [02-actors-and-roles.md](02-actors-and-roles.md) | Quality Inspector vs Quality Manager authority; decision rights |
+| [03-functional-requirements.md](03-functional-requirements.md) | Numbered FRs (`FR-INS-NNN`). Variant tags `[CI-only]` / `[CD-only]` |
+| [04-non-functional-requirements.md](04-non-functional-requirements.md) | Performance, reliability, audit, security |
+| [05-business-rules.md](05-business-rules.md) | The "why" behind invariants: factory-requirement skip, empty-mapping pattern, status-conditional routing, 5-step pattern, cavity_no fallback |
+| [06-acceptance-criteria.md](06-acceptance-criteria.md) | Plain-language UAT scripts for CI Accepted, CI Rejected, CD Accept-override, CD Reject, CD Rework |
 | [07-out-of-scope.md](07-out-of-scope.md) | Explicit exclusions |
-| [08-traceability.md](08-traceability.md) | Requirement-to-spec mapping and drift findings |
-
-## How to use this folder
-
-| Audience | Read first |
-|---|---|
-| QA / shop-floor leads | `01-purpose.md`, `02-actors-and-roles.md`, `06-acceptance-criteria.md` |
-| Production overseer | All files, especially `05-business-rules.md` and `08-traceability.md` |
-| Hermes workers | `03-functional-requirements.md`, `05-business-rules.md`, `08-traceability.md` |
-| Reviewer worker | `08-traceability.md` before approving any inspection-related change |
+| [08-traceability.md](08-traceability.md) | FR ↔ Spec, NFR ↔ Spec, BR ↔ Spec mappings + drift findings + change log |
 
 ## Versioning note
 
-Requirements state the intended business behavior. Current code can be ahead of, behind, or different from these requirements; those differences belong in `08-traceability.md` as drift findings.
-
+The saga rules are **load-bearing**. The 5-step pattern, the empty-mapping pattern, the factory-requirement skip — these survived production race conditions. Do not relax them without re-running the concurrency tests.
