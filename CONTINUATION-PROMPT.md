@@ -14,7 +14,7 @@ You are **Solution Architect / Production Overseer** for the SPP (Shree Polymer 
 
 ## The SPP ecosystem you must know
 
-4 inter-dependent Frappe apps at `/Users/alphaworkz/frappe-bench/apps/`:
+4 inter-dependent Frappe apps at `/home/friday/frappe-dev/apps/`:
 
 | App | Role | Branch convention | Bench |
 |---|---|---|---|
@@ -29,7 +29,7 @@ You are **Solution Architect / Production Overseer** for the SPP (Shree Polymer 
 
 ## Cockpit location and structure
 
-**Root:** `/Users/alphaworkz/spp-porting-cockpit/`
+**Root:** `/home/friday/frappe-dev/spp-porting-cockpit/`
 
 Currently exists:
 ```
@@ -122,28 +122,28 @@ Run this exact bash block, substituting `<PROCESS_CODE>` (e.g. `CUT_BIT_TRANSFER
 
 ```bash
 echo "=== Console doctype files ==="
-ls /Users/alphaworkz/frappe-bench/apps/shree_polymer_console/shree_polymer_console/shree_polymer_console/doctype/console_<process_name>/ 2>&1
+ls /home/friday/frappe-dev/apps/shree_polymer_console/shree_polymer_console/shree_polymer_console/doctype/console_<process_name>/ 2>&1
 # Also check for child doctypes (often named console_<process_name>_item or similar)
 
 echo "=== api.py functions ==="
 grep -n "<PROCESS_CODE>\|create_local_<process_name>\|<process_name>" \
-  /Users/alphaworkz/frappe-bench/apps/shree_polymer_console/shree_polymer_console/shree_polymer_console/api.py | head -20
+  /home/friday/frappe-dev/apps/shree_polymer_console/shree_polymer_console/shree_polymer_console/api.py | head -20
 
 echo "=== Bridge functions ==="
 grep -n "<PROCESS_CODE>\|populate_<process_name>_fields\|def populate_<process_name>" \
-  /Users/alphaworkz/frappe-bench/apps/shree_polymer_legacy_bridge/shree_polymer_legacy_bridge/sync_api.py | head -15
+  /home/friday/frappe-dev/apps/shree_polymer_legacy_bridge/shree_polymer_legacy_bridge/sync_api.py | head -15
 
 echo "=== Ops handler ==="
 grep -rn "<PROCESS_CODE>\|def submit_<process_name>\|def <process_name>" \
-  /Users/alphaworkz/frappe-bench/apps/shree_polymer_ops/shree_polymer_ops/ --include="*.py" 2>/dev/null | head -15
+  /home/friday/frappe-dev/apps/shree_polymer_ops/shree_polymer_ops/ --include="*.py" 2>/dev/null | head -15
 
 echo "=== Dash component ==="
-find /Users/alphaworkz/frappe-bench/apps/shree_polymer_console/dash/src/components/processes \
+find /home/friday/frappe-dev/apps/shree_polymer_console/dash/src/components/processes \
   -name "*.tsx" -not -path "*/worktrees/*" | grep -i "<process_name>" 
 
 echo "=== Mapping seeder ==="
 grep -n "<PROCESS_CODE>\|seed_<process_name>" \
-  /Users/alphaworkz/frappe-bench/apps/shree_polymer_console/shree_polymer_console/shree_polymer_console/console_mapping_seeder.py | head -10
+  /home/friday/frappe-dev/apps/shree_polymer_console/shree_polymer_console/shree_polymer_console/console_mapping_seeder.py | head -10
 ```
 
 ### Step 2: Read key files (use parallel Read calls)
@@ -213,7 +213,7 @@ For the process queue, these were the expected story anchors; the first three ar
 After writing all 11 files, run:
 
 ```bash
-wc -l /Users/alphaworkz/spp-porting-cockpit/02-specifications/<process-folder>/*.md
+wc -l /home/friday/frappe-dev/spp-porting-cockpit/02-specifications/<process-folder>/*.md
 ```
 
 Then summarize in chat:
@@ -247,7 +247,7 @@ These OVERRIDE any default behavior. They live at `~/.claude/memory/` and `~/.cl
 
 9. **Production overseer role:** User pulls and reviews. You do NOT execute on bench. You produce specs that Hermes Agent (remote machine) and user read.
 
-10. **Cockpit at `/Users/alphaworkz/spp-porting-cockpit/`** — NOT in `/Users/alphaworkz/frappe-bench/`. Sibling location, clean for eventual `git init`.
+10. **Cockpit at `/home/friday/frappe-dev/spp-porting-cockpit/`** — NOT in `/home/friday/frappe-dev/`. Sibling location, clean for eventual `git init`.
 
 ---
 
@@ -412,11 +412,11 @@ Expected total at completion: ~15,000-18,000 lines across ~150 files.
 
 ## Final tips
 
-1. **You will be tempted to graphify-query.** The graphify graph is at `/Users/alphaworkz/frappe-bench/.graphify_spp_workspace/graphify-out/` (4565 nodes, 6566 edges, AST-only). It's a fine reference but **grep + Read is faster** for "where is function X". I (previous session) used grep+Read for all 4 shipped specs. The user is OK with this — they explicitly asked about it. Use graphify only if you find yourself missing cross-app references that grep can't catch.
+1. **You will be tempted to graphify-query.** The graphify graph is at `/home/friday/frappe-dev/.graphify_spp_workspace/graphify-out/` (4565 nodes, 6566 edges, AST-only). It's a fine reference but **grep + Read is faster** for "where is function X". I (previous session) used grep+Read for all 4 shipped specs. The user is OK with this — they explicitly asked about it. Use graphify only if you find yourself missing cross-app references that grep can't catch.
 
 2. **You will be tempted to refactor.** Don't. The current architecture's complexity (5-step dance, empty-mapping pattern, BCR-1 inline write) has historical reasons. Spec it, surface refactor opportunities in `10-risks-and-decisions.md`, but do NOT propose refactors as actions.
 
-3. **You will be tempted to write planning/design docs.** Don't. The cockpit captures **what exists**, not what should exist. The plan docs at `/Users/alphaworkz/frappe-bench/spp_process_docs/console_porting/` are partially stale; this cockpit supersedes them.
+3. **You will be tempted to write planning/design docs.** Don't. The cockpit captures **what exists**, not what should exist. The plan docs at `/home/friday/frappe-dev/spp_process_docs/console_porting/` are partially stale; this cockpit supersedes them.
 
 4. **When in doubt, ask one question.** User has explicit preference: "one question at a time, plain language." A clarifying turn is cheaper than a wrong spec.
 
@@ -428,7 +428,7 @@ Expected total at completion: ~15,000-18,000 lines across ~150 files.
 
 Your first message after reading this prompt should:
 
-1. Confirm you've read and understood the cockpit at `/Users/alphaworkz/spp-porting-cockpit/02-specifications/` (12 specs already done, including Work Planning vs Add On Work Planning correction and Blank Bin Issue)
+1. Confirm you've read and understood the cockpit at `/home/friday/frappe-dev/spp-porting-cockpit/02-specifications/` (12 specs already done, including Work Planning vs Add On Work Planning correction and Blank Bin Issue)
 2. Briefly summarize the 4 hard architectural facts most relevant to the next empty process folder
 3. State your plan for the first 30 minutes of work (source discovery, then file writing)
 4. Ask ONE focused question — typically "Should I proceed with the next empty spec folder in process-scoped style?"
