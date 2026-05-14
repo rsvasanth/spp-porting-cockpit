@@ -39,4 +39,12 @@ When reviewing an existing process:
 3.  Compare the current `api.py` orchestration logic against the `Required Orchestration` section in the spec.
 
 ---
+
+## 4. The long-form methodology
+
+For the complete spec-driven methodology — the 8 phases, quality gates per phase, anti-patterns, and reference examples — see [`SPEC-DRIVEN-METHODOLOGY.md`](SPEC-DRIVEN-METHODOLOGY.md).
+
+This guide is the 1-page summary. The methodology document is the long-form playbook.
+
+---
 *This guide was established after the successful stabilization of the Work Planning module.*
