@@ -5,12 +5,11 @@
 **Entry point:** `shree_polymer_ops/api.py::process_transaction`
 **Engine:** `shree_polymer_ops/api.py::TransactionEngine`
 
-## What's special about MB Mixing on Ops
+## The Architectural Intent vs Reality for MB Mixing on Ops
 
-**There is no MB-specific code on Ops.** Grepping
-`apps/shree_polymer_ops` for `MASTER_BATCH_MIXING` returns zero hits. MB
-Mixing is handled by the **generic** `TransactionEngine`, which reads the
-sequence from the Console Process Template and executes each action.
+**Architectural Intent:** Ops should be a generic executor. MB Mixing is handled by the **generic** `TransactionEngine`, which reads the sequence from the Console Process Template and executes each action.
+
+**Current Reality (Tech Debt):** `shree_polymer_ops/api.py` still contains legacy process-specific code like `_process_stock_entry_pre_save`, `_resolve_batch_from_barcode`, and `_generate_mix_barcode`. These are **not actually triggered or needed** for modern Console payloads (because the Console pre-resolves all batches, barcodes, and items before sending the payload to Ops), but they still exist in the code. Any future refactor should remove this dead code so the codebase matches the pure execution architecture.
 
 Compare with the process-specific routing for other process types in
 `process_transaction`:

@@ -280,8 +280,44 @@ and Inspection Entry will have to compensate for.
 
 ---
 
+## ADR-006 — Zero Logic in Ops (Console-as-Brain)
+
+**Date:** 2026-05-15
+**Status:** Accepted — load-bearing invariant
+**Motion(s):** All Console processes
+
+### Context
+
+During the initial porting phases, process-specific business logic (e.g., barcode generation, batch resolution, and sheeting validation) was embedded directly into the Ops execution layer (`shree_polymer_ops/api.py`). This led to an architectural contradiction: the Console was designed to be the central "brain", but Ops was still making execution-time decisions. This confused both developers and AI agents, causing them to mistakenly assume new processes required writing custom Python logic in Ops.
+
+### Decision
+
+**Ops must be a "Zero Logic" thin execution layer. The Console is the exclusive brain.**
+
+All business rules, variable resolution, batch mapping, and conditional logic must be executed by the `shree_polymer_console` BEFORE a transaction payload is dispatched. The payload sent to Ops must be a fully resolved, declarative sequence of standard actions (`create_doc`, `submit_doc`, etc.).
+
+```python
+# BR-ARCH-006 — Zero Logic in Ops
+# Ops TransactionEngine is forbidden from containing process-specific methods.
+# Example: NO `_handle_sheeting_pre_save()`. 
+# If a process requires special logic, the Console template or Console API must resolve it.
+```
+
+### Consequences
+
+| | |
+|---|---|
+| **Enforced** | Ops remains purely generic and highly resilient. New processes can be launched via Console JSON templates without deploying any new Python code to Ops. |
+| **Not enforced** | Ops becomes a tangled web of legacy hooks, causing divergence between what the Console thinks happened and what Ops actually executed. |
+
+### Migration Note
+All legacy process hooks (`_handle_sheeting_pre_save`, `_process_stock_entry_pre_save`, etc.) have been surgically stripped from `shree_polymer_ops/api.py` as of May 2026. Future contributors must not reintroduce them.
+
+---
+
 ## Change Log
 
 | Date | ADR | Change | Author |
 |---|---|---|---|
 | 2026-05-12 | All | Initial ADR log drafted from cockpit traceability cross-validation | Architect mode session |
+| 2026-05-15 | ADR-006 | Added Zero Logic in Ops mandate | Architect mode session |

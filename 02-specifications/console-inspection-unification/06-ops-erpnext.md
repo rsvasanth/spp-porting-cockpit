@@ -2,9 +2,12 @@
 
 > Read [`../compound-deviation/06-ops-erpnext.md`](../compound-deviation/06-ops-erpnext.md) for the generic TransactionEngine pattern. The unification doesn't introduce a dedicated Ops handler — both Compound and Production families stay on the generic engine.
 
-## No inspection-specific Ops code
+## Architectural Intent vs Reality for Inspection on Ops
 
-`grep "COMPOUND_INSPECTION\|COMPOUND_DEVIATION\|LINE_INSPECTION" apps/shree_polymer_ops` → 0 hits. All inspection processing flows through `TransactionEngine`.
+**Architectural Intent:** All inspection processing (Compound Inspection, Compound Deviation) flows through `TransactionEngine` completely agnostically. 
+`grep "COMPOUND_INSPECTION\|COMPOUND_DEVIATION\|LINE_INSPECTION" apps/shree_polymer_ops` → 0 hits for direct process mapping.
+
+**Current Reality (Tech Debt):** While the inspection logic itself is properly agnostic, `shree_polymer_ops/api.py` still contains dead process-specific code (e.g., `_process_stock_entry_pre_save`, `_handle_sheeting_pre_save`) from earlier architecture iterations. These hooks do not interfere with inspection, but any developer auditing the `api.py` file should be aware that process-specific code in Ops is deprecated and slated for removal.
 
 ## Status-conditional Ops behavior (unchanged from CD spec)
 

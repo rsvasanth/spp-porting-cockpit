@@ -4,10 +4,12 @@
 > for the generic `TransactionEngine` pattern. Sheeting uses the same
 > generic engine — no dedicated handler.
 
-## No Sheeting-specific Ops code
+## Architectural Intent vs Reality for Sheeting on Ops
 
-`grep "SHEETING_PROCESS" apps/shree_polymer_ops` → 0 hits. Falls through
-to `TransactionEngine`.
+**Architectural Intent:** Sheeting should use the same generic engine — no dedicated handler.
+`grep "SHEETING_PROCESS" apps/shree_polymer_ops` → 0 hits for direct mapping.
+
+**Current Reality (Tech Debt):** `shree_polymer_ops/api.py` still contains legacy process-specific code for sheeting (specifically, the `_handle_sheeting_pre_save` method). While modern Sheeting payloads are pre-resolved by the Console and this hook is effectively dead weight that falls through or acts as a redundant safety net, any developer auditing the `api.py` file should be aware that process-specific code in Ops is deprecated and slated for removal.
 
 ## What the Ops engine does for Sheeting
 

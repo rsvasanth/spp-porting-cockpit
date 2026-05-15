@@ -2,13 +2,12 @@
 
 > **Identical to MB Mixing.** Read [`../master-batch-mixing/06-ops-erpnext.md`](../master-batch-mixing/06-ops-erpnext.md).
 
-## No FB-specific Ops code
+## Architectural Intent vs Reality for FB on Ops
 
-`grep "FINAL_BATCH_MIXING" apps/shree_polymer_ops` → 0 hits.
+**Architectural Intent:** Like MB Mixing, FB Mixing is handled by the **generic** `TransactionEngine` running the Console Process Template sequence.
+`grep "FINAL_BATCH_MIXING" apps/shree_polymer_ops` → 0 hits for direct mapping.
 
-`shree_polymer_ops::process_transaction` does not have a process-specific
-handler for FB, so the request falls through to the generic
-`TransactionEngine` — the same path MB uses.
+**Current Reality (Tech Debt):** `shree_polymer_ops::process_transaction` does not have a process-specific handler for FB, so it falls through to the generic `TransactionEngine`. However, `shree_polymer_ops/api.py` still contains dead process-specific code from earlier architecture iterations (like `_process_stock_entry_pre_save` and `_generate_mix_barcode`) that exist alongside the generic engine. These hooks do not interfere with modern FBM execution, but any developer auditing the `api.py` file should know this process-specific code is deprecated and slated for removal.
 
 ## Sequence steps for FB
 

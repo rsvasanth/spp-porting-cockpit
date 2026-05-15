@@ -4,11 +4,12 @@
 > for the generic TransactionEngine pattern. Compound Deviation runs on
 > the same engine.
 
-## No Deviation-specific Ops code
+## Architectural Intent vs Reality for Deviation on Ops
 
-`grep "COMPOUND_DEVIATION" apps/shree_polymer_ops` → 0 hits. The Ops
-side has no process-specific handler for Compound Deviation; falls
-through to `TransactionEngine`.
+**Architectural Intent:** The Ops side has no process-specific handler for Compound Deviation; it falls through to the generic `TransactionEngine`.
+`grep "COMPOUND_DEVIATION" apps/shree_polymer_ops` → 0 hits for direct mapping.
+
+**Current Reality (Tech Debt):** While Compound Deviation executes perfectly via the generic engine, `shree_polymer_ops/api.py` still contains dead process-specific code from earlier architecture iterations (e.g., `_process_stock_entry_pre_save`, `_handle_sheeting_pre_save`). These hooks do not interfere with CD execution, but any developer auditing the `api.py` file should know this process-specific code is deprecated and slated for removal.
 
 ## Status-driven Ops behavior
 
