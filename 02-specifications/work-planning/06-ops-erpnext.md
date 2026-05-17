@@ -26,6 +26,19 @@ Ops must preserve:
 | item, BOM, workstation, mould | Execution context |
 | reference ID | Retry and reconciliation |
 
+## Bridge vs Ops responsibility split
+
+Bridge handles **Work Planning document sync only** (Console → Legacy).
+Ops handles **Work Order + Job Card creation** via TransactionEngine.
+
+| Layer | Responsibility |
+| --- | --- |
+| Bridge | Sync Console Work Planning to Legacy Work Planning |
+| Legacy | Creates WO + Job Cards via `on_submit_value()` after submit |
+| Ops | Creates separate WO + Job Cards via TransactionEngine after bridge confirms |
+
+This split avoids double-creating WOs and keeps Legacy as the system of record for the manufacturing planning chain.
+
 ## Handler decision
 
 | Option | Risk |

@@ -37,6 +37,15 @@ Legacy creates Work Orders and Job Cards through `submit_workplan()` / `on_submi
 
 The previous Add On spec proposed `create_planning_with_jobcards`; for Work Planning this must target `Work Planning` and `Work Plan Item`, not Add On doctypes.
 
+## What Bridge creates vs what Legacy creates
+
+Bridge syncs only the **Console Work Planning → Legacy Work Planning** document.
+Bridge does **NOT** create Work Orders or Job Cards — those are created by Legacy's own `on_submit_value()` hook inside Legacy ERPNext.
+
+| Bridge action | Legacy side-effect |
+| --- | --- |
+| Insert + Submit Work Planning | Legacy `on_submit_value()` → `create_work_order()` → `update_job_cards()` |
+
 ## Idempotency requirements
 
 | Risk | Mitigation |
