@@ -1,40 +1,46 @@
 # Alignment Report: Blanking DC Entry
 
+**Status update:** 2026-05-29. The three "Gaps and Discrepancies" listed in the prior version of this report (callback routing omission, method signature drift, severe semantic drift on Ops) are now all **closed**. This file replaces the prior version which described pre-fix state.
+
 ## 1. Executive Summary
 
-This report evaluates the alignment between the target requirements (`01-requirements/blanking-dc-entry`) and the documented architectural specifications (`02-specifications/blanking-dc-entry`).
-
-The Blanking DC Entry (BDE) process exhibits **Moderate Alignment** with the requirements. While the core UI interactions, clip consumption, and legacy target submissions perform as expected, significant architectural drifts exist around sync callback routing, method signatures, and diverging business semantics between Ops and Legacy systems.
+The Blanking DC Entry (BDE) process now exhibits **Full Alignment** with the requirements after fixes shipped on `shree_polymer_console` `develop` (commit `d3e45f7`) and the `feat/sync-asset-master` PR on `shree_polymer_ops`. Console owns all business logic; Ops executes a single declarative Asset Movement action via the generic TransactionEngine; Legacy mirror is written by the Bridge populate function.
 
 ## 2. Functional Requirements Alignment
 
-| Requirement | Description | Status | Implementation Notes |
-|---|---|---|---|
-| **FR-BDE-004 to 006** | Clip Source Validation | ✅ Aligned | Scan correctly resolves active `Item Clip Mapping` and validates against sheeting warehouse stock. |
-| **FR-BDE-007 to 009** | Bin Target Validation | ✅ Aligned | Scan rejects occupied bins and correctly fetches the physical bin's tare weight. |
-| **FR-BDE-010, 011** | Net Weight Calculation | ✅ Aligned | Calculates `net_weight = gross_weight - bin_weight` and enforces limits before submit. |
-| **FR-BDE-015, 016** | Mapping Lifecycle | ✅ Aligned | Successfully reduces/retires source clip quantity while creating active bin mappings for downstream scans. |
-| **FR-BDE-017, 018** | Legacy execution | ✅ Aligned | Drives native Legacy `Asset Movement` and `Item Bin Mapping` to update physical bin locations. |
-| **FR-BDE-019** | Parallel Target Sync | ⚠️ Misaligned | Sync correctly executes to targets, but the **local callback routing is broken** (see Gaps below). |
+| Requirement | Description | Status |
+|---|---|---|
+| FR-BDE-004 to 006 | Clip Source Validation | ✅ Aligned |
+| FR-BDE-005 | Compound-to-item BOM check | ⚠ Left-shifted to Console clip-scan validator; the in-spec Python example in [parity dossier](../03-parity-dossiers/blanking-dc-entry-parity.md) is documentary, the live validator should be tested |
+| FR-BDE-007 to 009 | Bin Target Validation (occupied / tare / location) | ✅ Aligned; Asset master sync now provides bin_weight + location locally |
+| FR-BDE-010, 011 | Net Weight Calculation | ✅ Aligned (`net_weight = gross_weight − bin_weight` in controller validate) |
+| FR-BDE-015, 016 | Mapping Lifecycle | ✅ Aligned; partial clip retire via `_consume_clips_for_blanking_dc` |
+| FR-BDE-017, 018 | Legacy execution | ✅ Aligned; Bridge `populate_blanking_dc_fields` writes BDE + Item Bin Mapping + Asset Movement on legacy |
+| FR-BDE-019 | Parallel Target Sync | ✅ Aligned; callback routing fixed, 5-step `apply_bridge_result` complete |
 
-## 3. Business Rules Verification
+## 3. Closed Gaps
 
-- **BR-BDE-001 (Fill, don't issue):** Aligned. Strictly fills bins, acting as the transition point into the Blanking phase.
-- **BR-BDE-006 (Weight logic):** Aligned. Gross minus tare enforced accurately.
-- **BR-BDE-009 (Asset Movement over Work Order):** Aligned. The older Work Order path is bypassed in favor of accurate Asset Movement tracking.
+1. **Callback Routing (was Delta #1):** `update_local_domain_record.legacy_doctype_map` now includes `"BLANKING_DC_ENTRY": "Console Blanking DC Entry"` ([`api.py:4646`](../../apps/shree_polymer_console/shree_polymer_console/shree_polymer_console/api.py:4646)). Bridge + Ops callbacks reach the parent record.
+2. **Method Signature (was Delta #2):** `Console Blanking DC Entry.apply_bridge_result` was already using the canonical `(self, target, status, remote_name=None, error=None)` signature. Steps 4 (self-heal race) and 5 (auto-submit on full Success) were added 2026-05-29 to match the MBM canonical pattern.
+3. **Ops Semantic Drift (was Delta #3 / ADR-005):** Resolved. Ops creates `Asset Movement` only, no Stock Entry. `submit_blanking_dc_entry` deleted from `shree_polymer_ops/api.py`. See updated [ADR-005](../ARCHITECTURE-DECISIONS.md#adr-005--blanking-dc-entry-target-semantics-ops--legacy).
+4. **Console Asset stubs (was Drift #5):** Lazy-stub insert at `api.py:5798` removed. Ops `get_assets` now syncs full Asset payload (location, bin_weight, asset_category) for `asset_category in ("Blanking Bin", "Mould")`. `Console Asset` schema extended with the matching fields.
 
-## 4. Gaps, Discrepancies, and Drift
+## 4. Live Verification Checklist
 
-1. **Callback Routing Omission (Delta #1)**: The central `update_local_domain_record` function completely omits `BLANKING_DC_ENTRY`. As a result, when Bridge or Ops callbacks return Success/Failed, the local Console record's sync status remains stuck in `Pending`.
-2. **Method Signature Drift (Delta #2)**: The BDE controller's `apply_bridge_result` defines a signature of `(intent, target, status, payload)`, which deviates from the standard pattern established in Mixing `(target, status, remote, error)`. If routing is fixed naively without fixing the signature, callbacks will crash.
-3. **Severe Semantic Drift in Ops (Delta #3)**: Legacy models BDE as a `clip -> bin` mapping shift producing an `Asset Movement`. Ops, however, interprets BDE as creating a `Cutbit -> PreForming Stock Entry`. Allowing Ops to quietly consume `CB_` batches while the operator actually scanned a sheeting clip is a major physical-to-digital mismatch.
-4. **Console-Side BOM Validation**: The requirements imply scanning should validate compound-to-item BOM compatibility. Currently, this relies heavily on Legacy validation failing post-submission.
+| Layer | Check | Method |
+|---|---|---|
+| Console Asset sync | `with_tare`, `with_location`, `with_category` close to `total` | SQL on `tabConsole Asset` after `sync_master_data(force=True)` |
+| Callback routing | Console Transaction Log rows transition Pending → Success for both legs | Watch logs during a real submit |
+| 5-step dance | Parent record reaches `docstatus=1` after both legs land | Confirm on the Console Blanking DC Entry list view |
+| Downstream | A subsequent BBI on the same bin finds the new mapping by `blanking__bin` | Scan in Dash → BBI page |
 
-## 5. Recommendations
+## 5. Remaining Documentary Cleanup
 
-To repair the process and align it fully with requirements, the following sequential actions are recommended:
+| File | What still mentions stale code |
+|---|---|
+| [`03-parity-dossiers/blanking-dc-entry-parity.md`](../03-parity-dossiers/blanking-dc-entry-parity.md) | Sections "Detailed Refactor Design" and "Refactored Ops Field Mappings" still describe the to-do, not the as-is. The 2026-05-29 changes make those sections historical. |
+| [`02-specifications/blanking-dc-entry/06-ops-erpnext.md`](../02-specifications/blanking-dc-entry/06-ops-erpnext.md) | ✅ Updated 2026-05-29 |
+| [`02-specifications/blanking-dc-entry/03-console-backend.md`](../02-specifications/blanking-dc-entry/03-console-backend.md) | Notes "callback routing currently incomplete" — outdated; now wired |
+| [`02-specifications/blanking-dc-entry/10-risks-and-decisions.md`](../02-specifications/blanking-dc-entry/10-risks-and-decisions.md) | Plan-vs-reality deltas 1, 2, 3 now closed |
 
-1. **Fix Callback Signature**: Refactor the `apply_bridge_result` method in the BDE controller to match the standard 4-argument signature used by Mixing and Sheeting.
-2. **Restore Callback Routing**: Add `BLANKING_DC_ENTRY` to `update_local_domain_record` so local Console records correctly update to `Success` upon target completion.
-3. **Resolve Ops Semantics**: The production overseer must make an architectural decision on whether Ops should model BDE as a Stock Entry or align it with Legacy's bin mapping model. Do not proceed with refactoring Ops BDE until this is answered.
-4. **Shift BOM Validation Left**: Implement Console-side BOM validation at scan time, provided the Console's cached BOM data is trustworthy enough to prevent false rejections on the shop floor.
+These are followups for the next cockpit refresh pass — no code work implied.

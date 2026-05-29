@@ -227,8 +227,8 @@ Cascade function includes Patrol.
 
 ## ADR-005 — Blanking DC Entry Target Semantics: Ops ≠ Legacy
 
-**Date:** 2026-05-12 (documented — unresolved)
-**Status:** Known drift — production architecture decision needed
+**Date:** 2026-05-12 documented · **Resolved 2026-05-29 — Option A (unify on Legacy semantics).**
+**Status:** Resolved. Ops creates Asset Movement only; no Stock Entry path. `Item Bin Mapping` is Console-state + Bridge-mirrored to legacy. Achieved declaratively via the `BLANKING_DC_ENTRY` Console Process Template + the engine's `_normalise_asset_movement_locations` helper. See [`02-specifications/blanking-dc-entry/06-ops-erpnext.md`](02-specifications/blanking-dc-entry/06-ops-erpnext.md).
 **Motion(s):** Blanking DC Entry
 
 ### Context
