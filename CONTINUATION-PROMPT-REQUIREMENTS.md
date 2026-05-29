@@ -272,9 +272,9 @@ If you find these, **add a new requirement entry** rather than leaving the spec 
 
 **Specs to reference:**
 - `02-specifications/compound-deviation/` (already exists — read first, especially `09-rollout-and-history.md` "The Saga" section)
-- Console Inspection unification spec (NOT YET WRITTEN — will be `console-inspection-unification/`; the spec agent is still working on it)
+- Console Inspection unification spec (DECOMMISSIONED — marked obsolete in `console-inspection-unification/` in favor of distinct doctypes)
 
-**The story:** Polymorphic QA workflow — Compound Inspection accepts or rejects compound; rejected lots route through Compound Deviation for QM signoff. The 2026-04-29 → 2026-05-01 saga that drove the 5-step race-safe pattern lived in this motion. The unification refactor (Phases 1-4 deployed 2026-05-01) consolidated 3 per-type legacy doctypes into one unified `Console Inspection`.
+**The story:** Polymorphic QA workflow — Compound Inspection accepts or rejects compound; rejected lots route through Compound Deviation for QM signoff. The 2026-04-29 → 2026-05-01 saga that drove the 5-step race-safe pattern lived in this motion. The unification refactor is decommissioned (2026-05-20), and distinct doctypes (`Console Compound Inspection` and `Console Compound Deviation`) are the active design of record.
 
 **Key requirement themes:**
 - The factory-requirement skip for Rejected CIs (don't route to Legacy)
@@ -287,7 +287,7 @@ If you find these, **add a new requirement entry** rather than leaving the spec 
 **Numbering prefix:** `INS` (e.g. FR-INS-001).
 
 **Key findings Codex surfaced:**
-- Console Inspection unification source exists, but the matching spec folder is not written yet; traceability marks CI-specific coverage as pending spec work.
+- Console Inspection unification spec has been decommissioned, and the separate, dedicated doctypes are retained as the active design of record.
 - Current unified source already blocks duplicate active Deviations per source CI, while the older Compound Deviation spec still frames backend uniqueness as deferred.
 - `cavity_no` remains a real data-quality gap: requirement exists, current flow can carry it when present, but fallback/defaulting still needs explicit tracking.
 - Rejected CIs intentionally skip Legacy; this must be explained in UAT/UI as target intent, not mistaken for a failed Legacy leg.

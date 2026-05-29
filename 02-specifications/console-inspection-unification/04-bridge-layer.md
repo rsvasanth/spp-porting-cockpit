@@ -1,3 +1,7 @@
+> [!WARNING]
+> **DECOMMISSIONED REQUIREMENT**
+> As of 2026-05-20, the unification requirement is obsolete. The active design of record relies on separate doctypes. Do not follow the patterns described in this file.
+
 # 04 — Bridge layer
 
 > Read [`../compound-deviation/04-bridge-layer.md`](../compound-deviation/04-bridge-layer.md) for the empty-`field_mappings` pattern and the shared helpers (`_resolve_compound_identity`, `_lookup_legacy_stock_entry`, `_apply_compound_identity_to_doc`, `_apply_compound_readings_to_doc`, `_apply_compound_header_to_doc`). This file documents how the **unified** Console Inspection routes through the Bridge.

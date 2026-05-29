@@ -6,6 +6,8 @@
 **Legacy doctype:** `Delivery Challan Receipt` (`inward_material_type = "Master Batch"`) — ERPNext **v15**
 **Ops doctype:** Generic `Stock Entry` via the MES Transaction Engine (no MB-specific Ops code)
 
+**Parity dossier:** See [`../../03-parity-dossiers/mixing-mbm-fbm-dcr-parity.md`](../../03-parity-dossiers/mixing-mbm-fbm-dcr-parity.md) for the MBM/FBM/DCR porting proof, output expectations, failure capture plan, and real-data evidence checklist.
+
 This spec is **authoritative for intent, contract, and what-must-not-break.**
 For the latest implementation in any layer, the on-disk code + graphify graph
 remain the source of truth. The spec quotes code verbatim only where the

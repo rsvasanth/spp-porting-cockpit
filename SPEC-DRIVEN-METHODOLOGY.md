@@ -36,7 +36,7 @@ Four shipped specs demonstrate this methodology at full depth. Read them before 
 | [`02-specifications/master-batch-mixing/`](02-specifications/master-batch-mixing/) | **Full template** — every section at maximum depth. Wave 1 head-of-chain process. |
 | [`02-specifications/final-batch-mixing/`](02-specifications/final-batch-mixing/) | **Delta-style** — points back to MB for shared layers; documents only what diverges. |
 | [`02-specifications/compound-deviation/`](02-specifications/compound-deviation/) | **Saga narrative** — origin of the 5-step `apply_bridge_result` race-safety pattern. Empty-mapping pattern. |
-| [`02-specifications/console-inspection-unification/`](02-specifications/console-inspection-unification/) | **Polymorphic doctype** — single Console doctype with family discriminator; validation dispatch. |
+| [`02-specifications/console-inspection-unification/`](02-specifications/console-inspection-unification/) | **[DECOMMISSIONED] Polymorphic doctype** — Obsolete. Reverted in favor of distinct doctypes. |
 
 **Do not modify these four reference specs except to correct factual drift against current code.** They are the methodological reference.
 
@@ -388,7 +388,7 @@ When you reach a specific situation, look at the reference example:
 | First-time spec writing the methodology | MB Mixing — full template |
 | Process is similar to MB | FB Mixing — delta-style; cross-link to MB |
 | Process has race-condition history | Compound Deviation — saga narrative |
-| Process is polymorphic (one Console doctype, multiple types) | Console Inspection unification |
+| Process is polymorphic (one Console doctype, multiple types) | Console Inspection unification [DECOMMISSIONED] |
 | Process has dedicated Ops handler | Cut Bit Transfer — Charter Principle 2 exception |
 | Process has multi-output + inline write race | Sheeting Process — BCR-1 invariant |
 | Process has multi-step Bridge sequence with cross-step references | Moulding Production Entry (when shipped) — for now use plan doc |

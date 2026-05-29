@@ -1,3 +1,7 @@
+> [!WARNING]
+> **DECOMMISSIONED REQUIREMENT**
+> As of 2026-05-20, the unification requirement is obsolete. The active design of record relies on separate doctypes. Do not follow the patterns described in this file.
+
 # 05 — Legacy ERPNext (v15)
 
 > Most of the legacy details for the Compound family live in [`../compound-deviation/05-legacy-erpnext.md`](../compound-deviation/05-legacy-erpnext.md). This file focuses on the **unification-specific** legacy aspects.

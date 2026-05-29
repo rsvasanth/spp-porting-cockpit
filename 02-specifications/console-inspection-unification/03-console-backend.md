@@ -1,3 +1,7 @@
+> [!WARNING]
+> **DECOMMISSIONED REQUIREMENT**
+> As of 2026-05-20, the unification requirement is obsolete. The active design of record relies on separate doctypes. Do not follow the patterns described in this file.
+
 # 03 — Console backend — unified `create_local_inspection`
 
 > Shares the same orchestration scaffold as MB Mixing (read [`../master-batch-mixing/03-console-backend.md`](../master-batch-mixing/03-console-backend.md)). This file documents the **unification-specific** function `create_local_inspection` at `api.py:2647` and the controller's family-driven validation.

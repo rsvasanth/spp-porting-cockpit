@@ -1,3 +1,7 @@
+> [!WARNING]
+> **DECOMMISSIONED REQUIREMENT**
+> As of 2026-05-20, the unification requirement is obsolete. The active design of record relies on separate doctypes. Do not follow the patterns described in this file.
+
 # 10 — Risks and decisions
 
 ## Plan-vs-reality deltas

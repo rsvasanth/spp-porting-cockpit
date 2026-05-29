@@ -22,7 +22,7 @@ Estimated effort: 1 hour (doctype field + Dash input + payload include).
 
 | # | Delta | Plan said | Reality | My recommendation |
 |---|---|---|---|---|
-| 1 | Separate `Console Compound Deviation` doctype | Specified | Implemented as separate doctype, but Phase 3 dispatch routes new records to unified `Console Inspection` instead. Two doctypes co-exist. | **Consolidate** when feasible — the separate doctype is now legacy-path-only. Can be deprecated after a back-fill epic. |
+| 1 | Separate `Console Compound Deviation` doctype | Specified | Implemented as separate dedicated doctype. The unification refactor is decommissioned (2026-05-20). | **Maintain dedicated doctypes** — separate doctypes are the design of record. Unification is obsolete. |
 | 2 | `deviation_reason` field | Required | Required + 5-char minimum in validate | **Keep** — minimum length came from the saga (some operators submitted "ok" as reason). |
 | 3 | `cavity_no` field | Specified in template + mapping | Not wired through Console | **Wire properly** (see top of file) |
 | 4 | Multi-deviation per CI | Plan didn't address | Dash blocks via UI but no backend constraint | **Add backend uniqueness** — `Console Compound Deviation`'s `source_compound_inspection` should be unique among non-cancelled records. |
@@ -65,19 +65,12 @@ nothing enforces it at the DB level.
 **Recommend:** add when next Console doctype migration runs. Low priority
 because the UI gate has held in production.
 
-### Consolidate `Console Compound Deviation` into `Console Inspection`
+### Consolidate `Console Compound Deviation` into `Console Inspection` [CANCELLED]
 
-Phase 3 routes new Deviations to `Console Inspection`. The standalone
-`Console Compound Deviation` doctype is now legacy-only. Deprecation
-plan:
-1. Confirm zero new submissions hit `Console Compound Deviation` (Console Transaction Log analytics)
-2. Back-fill old records into `Console Inspection` with `inspection_type="Deviation"`
-3. Migrate `Console Compound Deviation` to read-only
-4. Remove from `parent_doctypes` lookup in module-level `apply_bridge_result`
-
-**Recommend:** defer until full Console Inspection unification spec is
-written (separate cockpit folder for that work). Don't touch the
-standalone doctype in isolation.
+> [!CAUTION]
+> **DECOMMISSIONED (2026-05-20)**
+> Consolidating `Console Compound Deviation` into `Console Inspection` is officially **cancelled**. 
+> The active design of record relies on separate dedicated doctypes. Do not follow the consolidation plan.
 
 ### Shared mixin for the 5-step pattern
 
@@ -96,7 +89,7 @@ across all 6 doctypes simultaneously — high cost, low benefit.
 |---|---|
 | Wire `cavity_no` through Console properly? | **Yes — 1 hour effort, high data-quality benefit** |
 | Add backend uniqueness for source_compound_inspection on Deviation? | **Yes, low priority** |
-| Begin Phase 3 cleanup migration of `Console Compound Deviation` → `Console Inspection`? | **Defer** until full unification cockpit spec exists |
+| Begin Phase 3 cleanup migration of `Console Compound Deviation` → `Console Inspection`? | **CANCELLED** — unification decommissioned |
 | Add monitoring on `cavity_no` fallback log frequency? | **Yes, as part of monitoring epic** |
 | Add monitoring on WAREHOUSE_MAP miss frequency? | **Yes, as part of monitoring epic** |
 | Refactor 5-step pattern into shared mixin? | **No, defer indefinitely** |

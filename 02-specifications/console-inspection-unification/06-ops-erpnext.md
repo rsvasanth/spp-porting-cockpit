@@ -1,3 +1,7 @@
+> [!WARNING]
+> **DECOMMISSIONED REQUIREMENT**
+> As of 2026-05-20, the unification requirement is obsolete. The active design of record relies on separate doctypes. Do not follow the patterns described in this file.
+
 # 06 — Ops ERPNext (v15)
 
 > Read [`../compound-deviation/06-ops-erpnext.md`](../compound-deviation/06-ops-erpnext.md) for the generic TransactionEngine pattern. The unification doesn't introduce a dedicated Ops handler — both Compound and Production families stay on the generic engine.

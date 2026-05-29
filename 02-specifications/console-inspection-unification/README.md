@@ -1,6 +1,15 @@
-# Console Inspection Unification — Specification
+# Console Inspection Unification — Specification [DECOMMISSIONED]
 
-**Status:** SPEC WRITTEN / CODE-INSPECTED. Do **not** treat as staging/prod shipped beyond the production overseer's 2026-05-12 clarification that only through Sheeting is shipped. Co-existence with pre-Phase-3 per-type doctypes is intentional and ongoing.
+> [!CAUTION]
+> **OBSOLETE / DECOMMISSIONED (2026-05-20)**
+> The Console Inspection Unification requirement is officially **no longer valid**. 
+> By direction of the product overseer, the system will continue to use distinct, dedicated doctypes (`Console Compound Inspection` and `Console Compound Deviation`) instead of a single unified `Console Inspection` doctype.
+> 
+> This folder is preserved purely for historical context. Refer to:
+> - [`../compound-deviation/`](../compound-deviation/) for Deviation requirements.
+> - [`../inspection-process/`](../inspection-process/) for Compound Inspection requirements.
+
+**Status:** DECOMMISSIONED / HISTORICAL ONLY. Do **not** implement or reference.
 **Combined coverage:** 5 Console doctypes (`Console Inspection`, `Console Inspection Reading`, `Console Inspection Reading Spec`, `Console Compound Inspection`, `Console Compound Inspection Reading`).
 **Naming series:** `INSP-.YYYY.-.#####` (unified parent).
 **Legacy doctype:** `Compound Inspection` (single doctype on Legacy, shared with Compound Deviation).

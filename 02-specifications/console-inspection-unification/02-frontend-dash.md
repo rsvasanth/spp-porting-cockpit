@@ -1,3 +1,7 @@
+> [!WARNING]
+> **DECOMMISSIONED REQUIREMENT**
+> As of 2026-05-20, the unification requirement is obsolete. The active design of record relies on separate doctypes. Do not follow the patterns described in this file.
+
 # 02 — Frontend (Dash)
 
 > The unification keeps **per-type React components** — there is NO single "unified inspection" screen. Each inspection_type gets its own component because UX requirements differ meaningfully (readings table for CI; QM signoff for CD; per-defect grid for Inspection Entry).

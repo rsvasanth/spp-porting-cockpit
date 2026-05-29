@@ -1,16 +1,22 @@
+> [!WARNING]
+> **DECOMMISSIONED REQUIREMENT**
+> As of 2026-05-20, the unification requirement is obsolete. The active design of record relies on separate doctypes. Do not follow the patterns described in this file.
+
 # 01 — Business context
+
+> **Scope narrowed (2026-05-19):** This unification now covers **Compound family only** (Compound Inspection + Compound Deviation). The Production family (Line / Patrol / Lot) and the "Other" family (Incoming, Final Visual / PDIR) moved to a separate doctype, `SPP Quality Control`, specified in [`../spp-quality-control/`](../spp-quality-control/). See [`10-risks-and-decisions.md`](10-risks-and-decisions.md) for the rationale.
 
 ## What "inspection" means at SPP
 
 Every material handoff in the manufacturing chain has a quality decision attached:
 
-| Family | Variants | Where in chain |
-|---|---|---|
-| **Compound** | Compound Inspection (initial QA) + Compound Deviation (QM override) | Between Final Batch Mixing and Sheeting |
-| **Production** | Inspection Entry (Line / Patrol / Lot) | During and at end of Moulding run |
-| (Other) | Quality Inspection on incoming raw materials, dispatch-side checks | Outside the porting program scope |
+| Family | Variants | Where in chain | Spec |
+|---|---|---|---|
+| **Compound** | Compound Inspection (initial QA) + Compound Deviation (QM override) | Between Final Batch Mixing and Sheeting | **This spec** |
+| **Production** | Line / Patrol / Lot | During and at end of Moulding run | [`../spp-quality-control/`](../spp-quality-control/) |
+| **Other** | Incoming raw materials, Final Visual / PDIR | Receipt; pre-dispatch | [`../spp-quality-control/`](../spp-quality-control/) |
 
-The unification covers **all current Console-side inspections** as a single doctype with family-driven discrimination.
+This spec covers **Compound family inspections only** as a single Console doctype (`Console Inspection`) with family-driven discrimination.
 
 ## Why unify
 

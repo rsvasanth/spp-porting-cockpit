@@ -1,3 +1,7 @@
+> [!WARNING]
+> **DECOMMISSIONED REQUIREMENT**
+> As of 2026-05-20, the unification requirement is obsolete. The active design of record relies on separate doctypes. Do not follow the patterns described in this file.
+
 # 07 — End-to-end flow
 
 > The base flow for Compound Inspection is the same as Compound Deviation's narrative in [`../compound-deviation/07-end-to-end-flow.md`](../compound-deviation/07-end-to-end-flow.md). This file traces an **Accepted CI submission** (Phase 3 unified) to illustrate the unification dispatch.

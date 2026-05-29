@@ -5,6 +5,8 @@
 **Legacy doctype:** `Delivery Challan Receipt` (`inward_material_type = "Compound"`) — ERPNext v15
 **Ops doctype:** Generic `Stock Entry` via the MES Transaction Engine
 
+**Parity dossier:** See [`../../03-parity-dossiers/mixing-mbm-fbm-dcr-parity.md`](../../03-parity-dossiers/mixing-mbm-fbm-dcr-parity.md) for the MBM/FBM/DCR porting proof, output expectations, failure capture plan, and real-data evidence checklist.
+
 > **Read [`../master-batch-mixing/`](../master-batch-mixing/) first.** FB Mixing is **architecturally identical to MB Mixing across 5 of the 7 layers**: same Dash pattern, same Console backend pattern, same controller (literal byte-for-byte copy of MB's controller with `MASTER_BATCH_MIXING` → `FINAL_BATCH_MIXING`), same Bridge mapping table (literally shares the same `field_mappings` rows seeded by `seed_mixing_process_mapping`), same Ops generic TransactionEngine path.
 >
 > This spec documents **only the deltas** from MB Mixing. If a layer is not mentioned here, the MB Mixing spec applies verbatim.

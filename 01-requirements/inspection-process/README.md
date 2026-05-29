@@ -7,15 +7,16 @@
 
 This document captures what the **business** needs the system to do. It is intentionally implementation-agnostic where possible. For "how it actually works today," see:
 
+- [`../../03-parity-dossiers/compound-inspection-parity.md`](../../03-parity-dossiers/compound-inspection-parity.md) — CI porting proof across Console, Legacy Bridge, legacy ERPNext, and Ops
 - [`../../02-specifications/compound-deviation/`](../../02-specifications/compound-deviation/) — particularly the Saga narrative in §09
-- Console Inspection unification spec (TBD — Phase 1-4 work)
+- [`../../02-specifications/console-inspection-unification/`](../../02-specifications/console-inspection-unification/) — decommissioned design history; current runtime uses dedicated CI/CD doctypes
 
 ## Why CI + CD share one requirements folder
 
 From Legacy's perspective, **CD is a CI**. Both produce the same legacy doctype (`Compound Inspection`) — they differ only in `status` field value, `quality_approver_*` fields, and downstream Stock Entry behavior. They share:
 
 - The same compound identity resolution pipeline (`_resolve_compound_identity` + `_lookup_legacy_stock_entry` + the 6-strategy chain)
-- The same Phase 3 unified Console doctype (`Console Inspection`)
+- Dedicated Console doctypes with shared Bridge identity-resolution invariants (`Console Compound Inspection` and `Console Compound Deviation`)
 - The same Bridge populate pipeline (CD uses CI's helpers + `_apply_deviation_extras`)
 - The same race-safe 5-step callback pattern (saga-validated)
 
