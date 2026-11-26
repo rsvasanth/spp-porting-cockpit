@@ -1,6 +1,6 @@
 # SPP Porting Cockpit — Architecture Decision Records
 
-> **Purpose:** Capture the 5 load-bearing architectural decisions that govern the
+> **Purpose:** Capture the load-bearing architectural decisions that govern the
 > Console MES porting project. These are the decisions that would require
 > significant rework if reversed. Each ADR is a standalone record. Hermes workers
 > and reviewers should read this before touching any cross-cutting concern.
@@ -315,9 +315,62 @@ All legacy process hooks (`_handle_sheeting_pre_save`, `_process_stock_entry_pre
 
 ---
 
+## ADR-007 — Rack Locations Are Child Warehouses, Not an Inventory Dimension
+
+**Date:** 2026-09-19
+**Status:** Accepted — load-bearing (supersedes the 2026-09-04 "rack as Ops Inventory Dimension" decision)
+**Motion(s):** FIFO Rack Locations for the Unit-3 storage area: master batch in `Mixing - SPP`, accepted compound in `Compound - SPP`. Planning map: iyyanarr/shree_polymer_console#265.
+
+### Context
+
+The "FIFO screen – MB storage area" requirement puts master batch and accepted compound onto barcoded rack slots (`8C` …), with standalone FIFO **Check-In** and **Check-Out** screens. FIFO order follows the mixing moment, and a supervisor approves exceptions. The racks stand physically inside the stores. Downstream processes (Final Batch Mixing, Sheeting) must not be FIFO-gated.
+
+The first design (2026-09-04) made the rack an **ERPNext Inventory Dimension** on the ledger *inside* the existing store warehouse, the same pattern Ops uses for the Deflashing Vendor. Rolled-back proofs on local Ops (tickets #267 and #268 on the map) showed it works mechanically, but it breaks down at the edges:
+
+- Downstream scans find stock by warehouse and post rows with **no** rack. ERPNext's per-dimension negative-stock check skips empty values and counts per *item + rack*, not per batch. So a racked batch used downstream without a Check-Out leaves **phantom stock** on its rack.
+- Clearing a phantom can't be done with a move: that's refused with `BatchNegativeStockError`. It needs a no-location Material Receipt followed by a Material Issue. That nets to zero value but books gross *Inventory ↔ Stock Adjustment* postings for every clear.
+- The design therefore needed a Blocked state, a manager clear, adjustment postings, a separate Console rack table, and a new Ops `get_rack_balances` endpoint. That endpoint would have been custom Ops logic, against ADR-006.
+
+### Decision
+
+**Each rack slot is a leaf warehouse under a per-store group warehouse.** (Slot warehouse names below are illustrative; slot ids are still open on the map.)
+
+```
+MB Racks - SPP        (group)  →  MB 8C - SPP, MB 8A - SPP, …        (leaves)
+Compound Racks - SPP  (group)  →  C 8C - SPP,  C 8A - SPP,  …        (leaves)
+Mixing - SPP, Compound - SPP   →  unchanged leaves (the stores)
+```
+
+- **Check-In** = Material Transfer store → slot. **Check-Out** = Material Transfer slot → store. Console resolves both and dispatches them as plain, declarative stock entries (ADR-006).
+- **Downstream sees only the stores.** Sheeting's compound scan is already limited to `Compound - SPP`. The Master Batch Mixing and Final Batch Mixing scans pass their source warehouse, `Mixing - SPP`, to `validate_rm_barcode`, which already supports it. This is the **only** downstream change, and it would have refused none of the real past consumptions (all came from `Mixing - SPP`).
+- At Check-Out, a supervisor's badge and a reason may approve an **out-of-turn** batch and/or **immature** compound. Each approval is logged separately.
+- FIFO order (Mix Moment, then the serial in the mix barcode) is computed in Console. ERPNext's native batch FIFO orders by `Batch.creation` per warehouse and is not used.
+
+### Options considered
+
+| Option | Why not / why |
+|---|---|
+| **A — Inventory Dimension inside the store warehouse** (2026-09-04) | Phantom stock whenever downstream uses a racked batch, so it needs a Blocked state, a manager clear with Stock Adjustment postings, a separate rack table, and an Ops endpoint. |
+| **B — Dimension pointing at ERPNext's `Location` tree** | Same phantom problem. `Location` is also the asset master on Ops (876 assets, 1,578 asset movements), is GIS-oriented, and commits mid-transaction when a child location is edited. |
+| **C — Child leaf warehouse per slot** ✅ | The ledger itself keeps racked stock out of downstream reach, so phantom stock can't exist. It uses only native stock entries and reports. |
+
+### Consequences
+
+| | |
+|---|---|
+| **Enforced** | Racked stock can only leave through FIFO Check-Out. No phantom stock, Blocked state, manager clear or adjustment postings. Racked stock is ordinary Console Stock Cache rows under the slot warehouses, so no separate rack table and no new Ops endpoint. |
+| **Cost** | One warehouse per slot, to be created at go-live and added to the stock sync. |
+| **Permanent** | `Mixing - SPP` and `Compound - SPP` stay leaves. ERPNext refuses to turn a warehouse with stock history into a group, and group warehouses can't transact, so stock never moves between a parent and its child. |
+| **Not a precedent against dimensions** | The Deflashing Vendor stays a dimension. The only process that takes stock out of `Deflashing Vendors - SPP` is deflash receiving, which names the vendor, so no untagged row can strand vendor stock. |
+
+**Do not reintroduce a rack dimension, or give downstream scans access to rack warehouses, without revisiting this ADR.**
+
+---
+
 ## Change Log
 
 | Date | ADR | Change | Author |
 |---|---|---|---|
 | 2026-05-12 | All | Initial ADR log drafted from cockpit traceability cross-validation | Architect mode session |
 | 2026-05-15 | ADR-006 | Added Zero Logic in Ops mandate | Architect mode session |
+| 2026-09-19 | ADR-007 | Rack Locations are child warehouses, not an inventory dimension (supersedes the 2026-09-04 decision) | Wayfinder session, map shree_polymer_console#265 |
